@@ -11,10 +11,10 @@
 #    All rights reserved                             #
 ######################################################
 
-import kangas as kg
+import datagrid as kg
 
 dg = kg.read_datagrid(
-    "https://github.com/caleb-kaiser/kangas_examples/raw/master/coco-500.datagrid"
+    "https://github.com/caleb-kaiser/datagrid_examples/raw/master/coco-500.datagrid"
 )
 
 

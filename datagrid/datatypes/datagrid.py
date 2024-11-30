@@ -175,7 +175,7 @@ class DataGrid:
         Examples:
 
         ```python
-        >>> from kangas import DataGrid, Image
+        >>> from datagrid import DataGrid, Image
         >>> import glob
         >>> dg = DataGrid(name="Images", columns=["Image", "Score"])
         >>> for filename in glob.glob("*.jpg"):
@@ -317,14 +317,14 @@ class DataGrid:
             width: (optional, str) the width of iframe in px or percentage
             use_ngrok: (optional, bool) force using ngrok as a proxy
             cli_kwargs: (dict) a dictionary with keys the names
-                of the kangas server flags, and values the setting value
+                of the datagrid server flags, and values the setting value
                 (such as: `{"backend-port": 8000}`)
                 kwargs: additional URL parameters to pass to server
 
         Example:
 
         ```python
-        >>> import kangas as kg
+        >>> import datagrid as kg
         >>> dg = kg.DataGrid()
         >>> # append data to DataGrid
         >>> dg.show()
@@ -333,7 +333,7 @@ class DataGrid:
         ...     group="Another Column Name")
         ```
         """
-        from kangas import launch
+        from datagrid import launch
 
         url = launch(
             host,
@@ -852,14 +852,14 @@ class DataGrid:
         Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
             extension. If so, it will be downloaded and unarchived. The JSON
             file is assumed to be in the archive with the same name as the
-            file/URL. If it is not, then please use the kangas.download()
+            file/URL. If it is not, then please use the datagrid.download()
             function to download, and then read from the downloaded file.
 
         [1] - https://jsonlines.org/
 
         Example:
         ```python
-        >>> from kangas import DataGrid
+        >>> from datagrid import DataGrid
         >>> dg = DataGrid.read_json("json_line_file.json")
         >>> dg = DataGrid.read_json("https://instances.social/instances.json")
         >>> dg = DataGrid.read_json("https://company.com/data.json.zip")

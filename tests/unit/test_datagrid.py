@@ -17,9 +17,9 @@ import random
 
 import pytest
 
-from kangas import Audio, Curve, DataGrid, Image, Text, Video
-from kangas.datatypes.utils import convert_string_to_date, convert_string_to_value
-from kangas.utils import make_column_name, sanitize_name
+from datagrid import Audio, Curve, DataGrid, Image, Text, Video
+from datagrid.datatypes.utils import convert_string_to_date, convert_string_to_value
+from datagrid.utils import make_column_name, sanitize_name
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 

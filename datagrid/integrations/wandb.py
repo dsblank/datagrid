@@ -20,7 +20,7 @@ from ..datatypes import DataGrid, Image
 
 def import_from_wandb(path, name, options):
     """
-    kangas import stacey/mnist-viz/baseline:v4 mnist.datagrid
+    datagrid import stacey/mnist-viz/baseline:v4 mnist.datagrid
     """
     import wandb
 

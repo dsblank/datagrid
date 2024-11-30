@@ -38,7 +38,7 @@ class Tensor(Asset):
         Example:
 
         ```python
-        >>> import kangas as kg
+        >>> import datagrid as kg
         >>> dg = kg.DataGrid()
         >>> for row in rows:
         >>>     tensor = row[0]

@@ -74,37 +74,37 @@ def terminate():
     Note: this should never be needed.
 
     ```python
-    >>> import kangas
-    >>> kangas.terminate()
+    >>> import datagrid
+    >>> datagrid.terminate()
     ```
     """
-    _process_method("node", "kangas", "terminate")
-    _process_method("kangas", "server", "terminate")
-    _process_method("python", "kangas", "terminate")
+    _process_method("node", "datagrid", "terminate")
+    _process_method("datagrid", "server", "terminate")
+    _process_method("python", "datagrid", "terminate")
 
 
 def get_session_id():
     """
     Get a session uuid.
     """
-    session_filename = os.path.join(tempfile.gettempdir(), "kangas_session")
+    session_filename = os.path.join(tempfile.gettempdir(), "datagrid_session")
     if os.path.isfile(session_filename):
         try:
-            kangas_uuid = open(session_filename).read()
+            datagrid_uuid = open(session_filename).read()
         except Exception:
-            kangas_uuid = "unreadable"
+            datagrid_uuid = "unreadable"
     else:
-        kangas_uuid = generate_guid()
+        datagrid_uuid = generate_guid()
         try:
             with open(session_filename, "w") as fp:
-                fp.write(kangas_uuid)
+                fp.write(datagrid_uuid)
         except Exception:
-            kangas_uuid = "unwriteable"
+            datagrid_uuid = "unwriteable"
 
-    return kangas_uuid
+    return datagrid_uuid
 
 
-def new_kangas_version_available():
+def new_datagrid_version_available():
     """
     Checks to see if a new Kangas version is available.
     """
@@ -123,11 +123,11 @@ def new_kangas_version_available():
 
         package = {
             "user_id": "Anonymous",
-            "event_type": "kangas_version_check",
+            "event_type": "datagrid_version_check",
             "event_properties": {
                 "license_key": "NA",
-                "kangas_session_uuid": get_session_id(),
-                "kangas_version": __version__,
+                "datagrid_session_uuid": get_session_id(),
+                "datagrid_version": __version__,
                 "os_version": "%s %s %s"
                 % (platform.system(), platform.release(), platform.version()),
                 "os_details": "%s (%s)" % (sys.platform, platform.platform()),

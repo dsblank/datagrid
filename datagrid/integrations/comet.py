@@ -45,7 +45,7 @@ def get_comet_type(asset_type):
 def import_from_comet(path, name, options):
     from comet_ml import API
 
-    from kangas import DataGrid, Image
+    from datagrid import DataGrid, Image
 
     api = API()
 
@@ -153,7 +153,7 @@ def export_to_comet(path, name, options):
 
     if path is None:
         experiment = comet_ml.Experiment()
-        experiment.log_other("Created from", "kangas")
+        experiment.log_other("Created from", "datagrid")
     elif path.count("/") == 2:
         # FIXME: id or name:
         workspace, project_name, experiment_id = path.split("/", 2)
@@ -161,11 +161,11 @@ def export_to_comet(path, name, options):
     elif path.count("/") == 1:
         workspace, project_name = path.split("/", 1)
         experiment = comet_ml.Experiment(workspace=workspace, project_name=project_name)
-        experiment.log_other("Created from", "kangas")
+        experiment.log_other("Created from", "datagrid")
     else:
         project_name = path
         experiment = comet_ml.Experiment(project_name=project_name)
-        experiment.log_other("Created from", "kangas")
+        experiment.log_other("Created from", "datagrid")
 
     # Log all of the assets:
     asset_map = {}

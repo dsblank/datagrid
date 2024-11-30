@@ -11,7 +11,7 @@
 #    All rights reserved                             #
 ######################################################
 
-import kangas as kg
+import datagrid as kg
 
 
 def make_datagrid():

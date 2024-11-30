@@ -36,11 +36,11 @@ from .utils import (
     _in_kaggle_environment,
     _is_running,
     get_localhost,
-    new_kangas_version_available,
+    new_datagrid_version_available,
     terminate,
 )
 
-if new_kangas_version_available():
+if new_datagrid_version_available():
     print("A new Kangas version is available", file=sys.stderr)
 
 
@@ -64,8 +64,8 @@ def launch(
     Example:
 
     ```python
-    >>> import kangas
-    >>> kangas.launch()
+    >>> import datagrid
+    >>> datagrid.launch()
     ```
     """
     import subprocess
@@ -75,13 +75,13 @@ def launch(
         hide_selector if hide_selector is not None else _in_jupyter_environment()
     )
 
-    if not _is_running("node", "kangas"):
+    if not _is_running("node", "datagrid"):
         print("Terminating any stray Kangas servers...")
         terminate()
         command_line = [
             sys.executable,
             "-m",
-            "kangas.cli.server",
+            "datagrid.cli.server",
             "--frontend-port",
             str(port),
             "--backend-port",
@@ -152,17 +152,17 @@ def show(
             iframe shown in the Jupyter notebook.
         use_ngrok: (optional, bool) force using ngrok as a proxy
         cli_kwargs: (dict) a dictionary with keys the names
-            of the kangas server flags, and values the setting value
+            of the datagrid server flags, and values the setting value
             (such as: `{"backend-port": 8000}`)
         kwargs: additional URL parameters to pass to server
 
     Example:
 
     ```python
-    >>> import kangas
-    >>> kangas.show("./example.datagrid")
-    >>> kangas.show("./example.datagrid", "{'Column Name'} < 0.5")
-    >>> kangas.show("./example.datagrid", "{'Column Name'} < 0.5",
+    >>> import datagrid
+    >>> datagrid.show("./example.datagrid")
+    >>> datagrid.show("./example.datagrid", "{'Column Name'} < 0.5")
+    >>> datagrid.show("./example.datagrid", "{'Column Name'} < 0.5",
     ...     group="Another Column Name")
     ```
     """
@@ -281,16 +281,16 @@ def read_dataframe(dataframe, **kwargs):
     Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
         extension. If so, it will be downloaded and unarchived. The JSON
         file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the kangas.download()
+        file/URL. If it is not, then please use the datagrid.download()
         function to download, and then read from the downloaded file.
 
     Examples:
 
     ```python
-    >>> import kangas
+    >>> import datagrid
     >>> from pandas import DataFrame
     >>> df = DataFrame(...)
-    >>> dg = kangas.read_dataframe(df)
+    >>> dg = datagrid.read_dataframe(df)
     >>> dg.save()
     ```
     """
@@ -309,16 +309,16 @@ def read_datagrid(filename, **kwargs):
     Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
         extension. If so, it will be downloaded and unarchived. The JSON
         file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the kangas.download()
+        file/URL. If it is not, then please use the datagrid.download()
         function to download, and then read from the downloaded file.
 
     Examples:
 
     ```python
-    >>> import kangas
-    >>> dg = kangas.read_datagrid("example.datagrid")
-    >>> dg = kangas.read_datagrid("http://example.com/example.datagrid")
-    >>> dg = kangas.read_datagrid("http://example.com/example.datagrid.zip")
+    >>> import datagrid
+    >>> dg = datagrid.read_datagrid("example.datagrid")
+    >>> dg = datagrid.read_datagrid("http://example.com/example.datagrid")
+    >>> dg = datagrid.read_datagrid("http://example.com/example.datagrid.zip")
     >>> dg.save()
     ```
     """
@@ -346,14 +346,14 @@ def read_json(filename, **kwargs):
     Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
         extension. If so, it will be downloaded and unarchived. The JSON
         file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the kangas.download()
+        file/URL. If it is not, then please use the datagrid.download()
         function to download, and then read from the downloaded file.
 
     [1] - https://jsonlines.org/
 
     Example:
     ```python
-    >>> import kangas as kg
+    >>> import datagrid as kg
     >>> dg = kg.read_json("json_line_file.json")
     >>> dg = kg.read_json("https://instances.social/instances.json")
     >>> dg = kg.read_json("https://company.com/data.json.zip")
@@ -382,8 +382,8 @@ def download(url, ext=None):
     Example:
 
     ```python
-    >>> import kangas
-    >>> kangas.download("https://example.com/example.images.zip")
+    >>> import datagrid
+    >>> datagrid.download("https://example.com/example.images.zip")
     ```
     """
     return DataGrid.download(url, ext)
@@ -416,16 +416,16 @@ def read_csv(
     Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
         extension. If so, it will be downloaded and unarchived. The JSON
         file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the kangas.download()
+        file/URL. If it is not, then please use the datagrid.download()
         function to download, and then read from the downloaded file.
 
     Examples:
 
     ```python
-    >>> import kangas
-    >>> dg = kangas.read_csv("example.csv")
-    >>> dg = kangas.read_csv("http://example.com/example.csv")
-    >>> dg = kangas.read_csv("http://example.com/example.csv.zip")
+    >>> import datagrid
+    >>> dg = datagrid.read_csv("example.csv")
+    >>> dg = datagrid.read_csv("http://example.com/example.csv")
+    >>> dg = datagrid.read_csv("http://example.com/example.csv.zip")
     >>> dg.save()
     ```
     """

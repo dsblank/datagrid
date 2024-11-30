@@ -147,7 +147,7 @@ def parse_args_kwargs(params):
 
 
 def create_markdown_button(url, dgid, params):
-    import kangas
+    import datagrid
 
     args, kwargs = parse_args_kwargs(params)
     if (
@@ -156,11 +156,11 @@ def create_markdown_button(url, dgid, params):
         and args[0].endswith(".datagrid")
         or "datagrid" in kwargs
     ):
-        params = get_argument_bindings(kangas.show, list(args), kwargs)
+        params = get_argument_bindings(datagrid.show, list(args), kwargs)
     else:
         # Add an arg for self:
         params = get_argument_bindings(
-            kangas.DataGrid.show, [None] + list(args), kwargs
+            datagrid.DataGrid.show, [None] + list(args), kwargs
         )
 
     # Copy kwargs to params:

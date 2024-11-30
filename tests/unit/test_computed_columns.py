@@ -11,9 +11,9 @@
 #    All rights reserved                             #
 ######################################################
 
-from kangas import DataGrid, Image
-from kangas.server.computed_columns import eval_computed_columns, update_state
-from kangas.server.queries import select_query_count, select_query_page
+from datagrid import DataGrid, Image
+from datagrid.server.computed_columns import eval_computed_columns, update_state
+from datagrid.server.queries import select_query_count, select_query_page
 
 from ..testlib import AlwaysEquals
 

@@ -11,7 +11,7 @@
 #    All rights reserved                             #
 ######################################################
 """
-kangas setup
+datagrid setup
 """
 import io
 import os

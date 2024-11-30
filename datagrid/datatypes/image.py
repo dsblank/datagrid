@@ -152,7 +152,7 @@ class Image(Asset):
 
         Example:
         ```python
-        >>> import kangas as kg
+        >>> import datagrid as kg
         >>> image = kg.Image("filename.jpg").to_pil()
         >>> image.show()
         ```
@@ -589,7 +589,7 @@ class Image(Asset):
             layer_name: (str) the layer for the labels and mask
             label_map: (dict) dictionary of index (int) to label (string)
             mask: (2D array or np.array with int values, image filename,
-                PIL.Image, or kangas.Image) an array in row-first order
+                PIL.Image, or datagrid.Image) an array in row-first order
                 (mask[row][col]) or Image. If column-first order use
                 column_first=True
             scores: (optional, dict) a score associated with each label
@@ -600,7 +600,7 @@ class Image(Asset):
 
         Example:
         ```python
-        >>> import kangas as kg
+        >>> import datagrid as kg
         >>> import PIL.Image
         >>> image = kg.Image("source.png")
         >>> mask1 = PIL.Image.open("pred.png")
@@ -705,7 +705,7 @@ class Image(Asset):
             layer_name: (str) the layer for the label and mask
             label: (str) the label for the mask
             mask: (2D array or np.array with values 0-1, image filename,
-                PIL.Image, or kangas.Image) an array in row-first order
+                PIL.Image, or datagrid.Image) an array in row-first order
                 (mask[row][col]) or Image. If column-first order use
                 column_first=True
             score: (optional, number) a score associated with the mask
@@ -733,7 +733,7 @@ class Image(Asset):
 
         Example:
         ```python
-        >>> import kangas as kg
+        >>> import datagrid as kg
         >>> import PIL.Image
         >>> image = kg.Image("source.png")
         >>> mask = PIL.Image.open("attention.png")

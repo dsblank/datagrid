@@ -19,7 +19,7 @@ from pathlib import Path
 
 import PIL.Image
 
-import kangas
+import datagrid
 
 from ..utils import ProgressBar
 
@@ -67,7 +67,7 @@ def deploy_to_huggingface(path, name):
     try:
         api = HfApi()
         repo_info = api.duplicate_space(
-            "comet-team/kangas-direct", to_id=path, exist_ok=False
+            "comet-team/datagrid-direct", to_id=path, exist_ok=False
         )
         api.upload_folder(
             repo_id=repo_info.repo_id,
@@ -80,7 +80,7 @@ def deploy_to_huggingface(path, name):
         huggingface_hub.login()
         api = HfApi()
         repo_info = api.duplicate_space(
-            "comet-team/kangas-direct", to_id=path, exist_ok=False
+            "comet-team/datagrid-direct", to_id=path, exist_ok=False
         )
         api.upload_folder(
             repo_id=repo_info.repo_id,
@@ -157,7 +157,7 @@ def import_from_huggingface(path, name, options):
                 if metadata_column in row:
                     metadata = json.loads(row[metadata_column])
                     del row[metadata_column]
-                image = kangas.Image(column, metadata=metadata)
+                image = datagrid.Image(column, metadata=metadata)
                 # Get annotations:
                 if bbox:
                     bbox_column, bbox_field, bbox_type = bbox.split(
@@ -188,7 +188,7 @@ def import_from_huggingface(path, name, options):
                 row[column_name] = image
         data.append(row)
 
-    dg = kangas.DataGrid(name=name, data=data)
+    dg = datagrid.DataGrid(name=name, data=data)
     dg.save(full_path)
 
 
@@ -198,7 +198,7 @@ def export_to_huggingface(path, name, options):
     except Exception:
         raise Exception("requires `pip install datasets`")
 
-    dg = kangas.read_datagrid(name)
+    dg = datagrid.read_datagrid(name)
 
     basename, extension = os.path.splitext(name)
 
@@ -270,7 +270,7 @@ def create_loader_from_datagrid(
     class_name,
     version="1.0.0",
     description="A Kangas DataGrid dataset",
-    homepage="https://github.com/comet-ml/kangas",
+    homepage="https://github.com/comet-ml/datagrid",
     license="cc",
     citation="@misc{}",
 ):
