@@ -66,6 +66,10 @@ def download(url, filename):
         with open(filename, "wb") as f:
             f.write(g.read())
 
+def download_data(url):
+    g = urllib.request.urlopen(url, timeout=5)
+    return g.read()
+
 
 def unpack_archive(archive_filename, ext=None):
     if ext is not None:

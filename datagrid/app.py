@@ -2,9 +2,13 @@ from .datatypes.utils import (
     get_color,
     get_rgb_from_hex,
     get_contrasting_color,
+    generate_thumbnail,
+    download_data,
+    image_to_fp,
 )
 import json
 import random
+import base64
 
 def build_header_row(column_names):
     retval = "<tr>"
@@ -13,11 +17,21 @@ def build_header_row(column_names):
     retval += "</tr>"
     return retval
 
-def build_row(r, row, schema, experiment_id):
+def build_row(r, row, schema, experiment):
     retval = "<tr>"
     for c, (column_name, value) in enumerate(row.items()):
         if schema[column_name]["type"] == "IMAGE-ASSET":
-            value = """<a href="#" id="%s,%s"><img src="https://www.comet.com/api/asset/download?assetId=%s&experimentKey=%s" style="max-height: 55px;"></img></a>""" %  (c, r, value["assetData"]["asset_id"], experiment_id)
+
+            asset_data = experiment.get_asset(value["assetData"]["asset_id"], return_type="binary")
+            
+            bytes, image = generate_thumbnail(
+                asset_data, annotations=value["assetData"]["annotations"], return_image=True
+            )
+            result = image_to_fp(image, "png").read()
+            data = "data:image/png;base64," + base64.b64encode(result).decode("utf-8")
+
+            
+            value = """<a href="#" id="%s,%s"><img src="%s" style="max-height: 55px;"></img></a>""" %  (c, r, data)
         elif schema[column_name]["type"] == "TEXT":
             if len(value) < 25: ## and count_unique < 2000
                 background = get_color(value)
@@ -29,12 +43,12 @@ def build_row(r, row, schema, experiment_id):
     retval += "</tr>"
     return retval
 
-def build_table(data, schema, experiment_id, table_id):
+def build_table(data, schema, experiment, table_id):
     width = len(data[0].keys()) * 150 if data else 100
     retval = f"""<table id="{table_id}" style="width: {width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys())
     for r, row in enumerate(data):
-        retval += build_row(r, row, schema, experiment_id)
+        retval += build_row(r, row, schema, experiment)
     retval += "</table>"
     return retval, width
 
