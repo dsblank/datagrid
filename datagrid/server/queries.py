@@ -1915,7 +1915,7 @@ def select_query_page(
                         row[select_column] = {
                             "type": "asset",
                             "assetType": asset_type,
-                            "assetId": column_value,
+                            "assetValue": json.loads(column_value),
                         }
                     else:
                         pass  # don't change value of group-by column
@@ -1968,7 +1968,7 @@ def select_query_page(
                     row[select_column] = {
                         "type": "asset",
                         "assetType": asset_type,
-                        "assetId": column_value,
+                        "assetData": json.loads(column_value),
                     }
                 elif column_type in ["JSON", "VECTOR"]:
                     try:
