@@ -480,8 +480,7 @@ def generate_image(asset_data):
     from PIL import Image
 
     image = Image.open(io.BytesIO(asset_data))
-    if image.mode not in ["RGBA", "RGB"]:
-        image = image.convert("RGB")
+    image = image.convert("RGBA")
     return image
 
 
@@ -567,22 +566,39 @@ def get_contrasting_color(color):
 
 def get_unique_color(hash):
     colors = [
-        "#ffd51d",
-        "#ffbd00",
-        "#ff8900",
-        "#fb7628",
-        "#ff4747",
-        "#e51772",
-        "#cf0057",
-        "#6e1d89",
-        "#860dab",
-        "#49a5bd",
-        "#0096c7",
-        "#00b4d8",
-        "#12a592",
-        "#16cab2",
-        "#41ead4",
+        '#e51772',
+        '#0096c7',
+        '#00b4d8',
+        '#12a592',
+        '#16cab2',
+        '#fb7628',
+        '#ff4747',
+        '#ff8900',
+        '#ffbd00',
+        '#41ead4',
+        '#49a5bd',
+        '#6e1d89',
+        '#860dab',
+        '#cf0057',
+        '#ffd51d'
     ]
+    #colors = [
+    #    "#ffd51d",
+    #    "#ffbd00",
+    #    "#ff8900",
+    #    "#fb7628",
+    #    "#ff4747",
+    #    "#e51772",
+    #    "#cf0057",
+    #    "#6e1d89",
+    #    "#860dab",
+    #    "#49a5bd",
+    #    "#0096c7",
+    #    "#00b4d8",
+    #    "#12a592",
+    #    "#16cab2",
+    #    "#41ead4",
+    #]
     return colors[hash % len(colors)]
 
 
@@ -593,7 +609,7 @@ def make_tag(layer_name, label):
         return "%s: %s" % (layer_name, label)
 
 
-def draw_annotations_on_image(image, annotations, width, height):
+def draw_annotations_on_image(image, annotations, width, height, includes=None):
     # annotations: "mask", "boxes", "points", "markers", or "lines"
     from PIL import ImageDraw
 
@@ -601,6 +617,13 @@ def draw_annotations_on_image(image, annotations, width, height):
 
     canvas = None
     pixels = None
+
+    if includes is not None:
+        transparency = "88"
+        line_width = 5
+    else:
+        transparency = "FF"
+        line_width = 1
 
     # assumes images keep aspect ratio
     scale = image.size[0] / width  # scale of thumbnail
@@ -669,6 +692,9 @@ def draw_annotations_on_image(image, annotations, width, height):
 
     for annotation_layer in annotations:
         for annotation in annotation_layer["data"]:
+            if includes is not None and annotation["label"] not in includes:
+                continue
+
             if "boxes" in annotation and annotation["boxes"]:
                 if canvas is None:
                     canvas = ImageDraw.Draw(image)
@@ -681,11 +707,12 @@ def draw_annotations_on_image(image, annotations, width, height):
                             ((x + w) * scale, (y + h) * scale),
                         ],
                         outline=color,
+                        width=line_width,
                     )
             if "points" in annotation and annotation["points"]:
                 if canvas is None:
                     canvas = ImageDraw.Draw(image)
-                color = get_color(annotation["label"])
+                color = get_color(annotation["label"]) + transparency
                 for region in annotation["points"]:
                     canvas.polygon([value * scale for value in region], fill=color)
             if "markers" in annotation and annotation["markers"]:

@@ -31,14 +31,14 @@ def build_row(r, row, schema, experiment):
             data = "data:image/png;base64," + base64.b64encode(result).decode("utf-8")
 
             
-            value = """<a href="#" id="%s,%s"><img src="%s" style="max-height: 55px;"></img></a>""" %  (c, r, data)
+            value = """<img src="%s" style="max-height: 55px;"></img>""" %  data
         elif schema[column_name]["type"] == "TEXT":
             if len(value) < 25: ## and count_unique < 2000
                 background = get_color(value)
                 color = get_contrasting_color(background)
                 value = f"""<div style="background: {background}; color: {color}; width: 80%; text-align: center; border-radius: 50px; margin-left: 10%;">{value}</div>"""
 
-        retval += """<td style="border: 1px solid; border-collapse: collapse; text-align: center; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: 55px;">%s</td>""" % value
+        retval += """<td style="border: 1px solid; border-collapse: collapse; text-align: center; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: 55px;"><a href="#" id="%s,%s" style="color: black;">%s</a></td>""" % (c, r, value)
 
     retval += "</tr>"
     return retval
