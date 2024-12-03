@@ -49,8 +49,13 @@ class AttributeNode:
 
 
 class Evaluator:
-    def __init__(self):
+    def __init__(self, metadata):
         # Selections keep track of aggregate select clauses
+        self.metadata = metadata if metadata is not None else {}
+        self.column_names = {
+            column.lower().replace("-", "_").replace(" ", "_"): column.lower()
+            for column in self.metadata.keys()
+        }
         self.selections = {}
         self.operators = {
             ast.Mod: "({leftOperand} % {rightOperand})",
@@ -92,7 +97,13 @@ class Evaluator:
             }
             return template.format(**args)
         elif isinstance(node, ast.Name):
-            return str(node.id)
+            ## Special format for delayed evaluation of computed
+            ## columns
+            value = node.id
+            if value.lower() in self.column_names:
+                return "{'%s'}" % self.column_names[value.lower()]
+            else:
+                return str(value)
         elif isinstance(node, (ast.Constant, ast.NameConstant)):
             if node.value is None:
                 return "null"
@@ -542,7 +553,7 @@ def escape(string):
     return s3
 
 
-def eval_computed_columns(computed_columns, where_expr=None):
+def eval_computed_columns(computed_columns, where_expr=None, metadata=None):
     """
     Takes: list of computed_columns: {
       "New date": {
@@ -566,7 +577,7 @@ def eval_computed_columns(computed_columns, where_expr=None):
         * type is a DATAGRID types (INTEGER, IMAGE-ASSET, etc)
         * SELECTIONS is a dict of NAME mapped to SQL sub selects
     """
-    evaluator = Evaluator()
+    evaluator = Evaluator(metadata)
     where_sql = None
     # new columns:
     new_columns = {}
@@ -611,7 +622,7 @@ def update_state(
     Returns the SQL where clause, if `where_expr` is provided.
     """
     new_columns, select_map, where_sql = eval_computed_columns(
-        computed_columns, where_expr
+        computed_columns, where_expr, metadata
     )
 
     def name_to_key(name):

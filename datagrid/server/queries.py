@@ -1884,6 +1884,7 @@ def select_query_page(
     else:
         select_sql = "%s;" % select_sql
     selection_sql = select_sql.format(**env)
+
     if debug:
         print(selection_sql)
     LOGGER.debug("SQL %s", selection_sql)

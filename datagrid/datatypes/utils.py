@@ -553,6 +553,14 @@ def get_rgb_from_hex(color):
     )
 
 
+def get_contrasting_color(color):
+    # color in hex
+    colors = get_rgb_from_hex(color)
+    r, g, b  = colors
+    o = round((r * 299 + g * 587 + b * 114) / 1000)
+    return '#000000' if o > 125 else '#ffffff'
+
+
 def get_unique_color(hash):
     colors = [
         "#ffd51d",
