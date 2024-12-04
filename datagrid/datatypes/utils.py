@@ -565,40 +565,41 @@ def get_contrasting_color(color):
 
 
 def get_unique_color(hash):
-    colors = [
-        '#e51772',
-        '#0096c7',
-        '#00b4d8',
-        '#12a592',
-        '#16cab2',
-        '#fb7628',
-        '#ff4747',
-        '#ff8900',
-        '#ffbd00',
-        '#41ead4',
-        '#49a5bd',
-        '#6e1d89',
-        '#860dab',
-        '#cf0057',
-        '#ffd51d'
-    ]
+    # New color ordering:
     #colors = [
-    #    "#ffd51d",
-    #    "#ffbd00",
-    #    "#ff8900",
-    #    "#fb7628",
-    #    "#ff4747",
-    #    "#e51772",
-    #    "#cf0057",
-    #    "#6e1d89",
-    #    "#860dab",
-    #    "#49a5bd",
-    #    "#0096c7",
-    #    "#00b4d8",
-    #    "#12a592",
-    #    "#16cab2",
-    #    "#41ead4",
+    #    '#e51772',
+    #    '#0096c7',
+    #    '#00b4d8',
+    #    '#12a592',
+    #    '#16cab2',
+    #    '#fb7628',
+    #    '#ff4747',
+    #    '#ff8900',
+    #    '#ffbd00',
+    #    '#41ead4',
+    #    '#49a5bd',
+    #    '#6e1d89',
+    #    '#860dab',
+    #    '#cf0057',
+    #    '#ffd51d'
     #]
+    colors = [
+       "#ffd51d",
+       "#ffbd00",
+       "#ff8900",
+       "#fb7628",
+       "#ff4747",
+       "#e51772",
+       "#cf0057",
+       "#6e1d89",
+       "#860dab",
+       "#49a5bd",
+       "#0096c7",
+       "#00b4d8",
+       "#12a592",
+       "#16cab2",
+       "#41ead4",
+    ]
     return colors[hash % len(colors)]
 
 
@@ -619,10 +620,10 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
     pixels = None
 
     if includes is not None:
-        transparency = "88"
+        #transparency = "88"
         line_width = 5
     else:
-        transparency = "FF"
+        #transparency = "FF"
         line_width = 1
 
     # assumes images keep aspect ratio
@@ -712,7 +713,7 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
             if "points" in annotation and annotation["points"]:
                 if canvas is None:
                     canvas = ImageDraw.Draw(image)
-                color = get_color(annotation["label"]) + transparency
+                color = get_color(annotation["label"]) # + transparency
                 for region in annotation["points"]:
                     canvas.polygon([value * scale for value in region], fill=color)
             if "markers" in annotation and annotation["markers"]:
