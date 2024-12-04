@@ -2,6 +2,7 @@ import json
 import random
 import base64
 import streamlit as st
+import plotly.graph_objects as go
 
 from .datatypes.utils import (
     get_color,
@@ -20,9 +21,13 @@ from .server.queries import (
     select_category,
     select_histogram,
     select_asset_group_thumbnail,
+    select_asset_group,
     generate_chart_image,
     get_completions,
     verify_where,
+    get_database_connection,
+    get_metadata,
+    select_group_by_rows,
 )
 
 IMAGE_SIZE = 200
@@ -163,8 +168,8 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
             # "IMAGE-ASSET", "VIDEO-ASSET", "CURVE-ASSET", "ASSET-ASSET", "AUDIO-ASSET"
             if schema[column_name]["type"] == "IMAGE-ASSET":
 
-                asset_data = experiment.get_asset(
-                    value["assetData"]["asset_id"], return_type="binary"
+                asset_data = experiment_get_asset(
+                    experiment, experiment.id, value["assetData"]["asset_id"], return_type="binary"
                 )
 
                 bytes, image = generate_thumbnail(
@@ -218,10 +223,50 @@ def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id):
     return retval, len(data[0].keys()) * width
 
 
-@st.dialog("Image Viewer", width="large")
+@st.dialog(" ", width="large")
 def render_image_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        st.write("TODO: image group")
+        results = select_asset_group(
+            experiment,
+            experiment.id,
+            dgid=value["dgid"],
+            group_by=value["groupBy"],
+            where=value["whereExpr"],
+            column_name=value["columnName"],
+            column_value=value["columnValue"],
+            column_offset=0, # FIXME to allow paging of images
+            column_limit=20,
+            computed_columns=None,
+            where_expr=value["whereExpr"],
+            distinct=True,
+        )
+        data = [json.loads(item.replace("&comma;", ",")) for item in results["values"]]
+        images = ""
+        for i, value in enumerate(data):
+            asset_data = experiment_get_asset(
+                experiment, experiment.id, value["asset_id"], return_type="binary"
+            )
+
+            bytes, image = generate_thumbnail(
+                asset_data,
+                annotations=value["annotations"],
+                return_image=True,
+            )
+            
+            result = image_to_fp(image, "png").read()
+            image_data = "data:image/png;base64," + base64.b64encode(result).decode(
+                "utf-8"
+            )
+
+            url = f"{BASEURL}/{experiment.workspace}/{experiment.project_name}/{experiment.id}?experiment-tab=images&graphicsAssetId={value['asset_id']}"
+            images += """<a href="%s"><img src="%s" style="padding: 5px;"></img></a>""" % (url, image_data)
+
+        if len(data) < 20:
+            st.write(f"Total {len(data)} images in group; click image to open in tab")
+        else:
+            st.write("First 20 images in group; click image to open in tab")
+        st.markdown(images, unsafe_allow_html=True)
+            
     else:
         st.link_button(
             "Open image in tab",
@@ -258,7 +303,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
         st.rerun()
 
 
-@st.dialog("Text Viewer", width="large")
+@st.dialog(" ", width="large")
 def render_text_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         st.write("TODO: text group")
@@ -272,10 +317,26 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
         st.rerun()
 
 
-@st.dialog("Integer Viewer", width="large")
+@st.dialog(" ", width="large")
 def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        st.write("TODO: integer group")
+        conn = get_database_connection(value["dgid"])
+        cur = conn.cursor()
+        metadata = get_metadata(conn)
+        results = select_group_by_rows(
+            column_name=value["columnName"],
+            column_value=value["columnValue"],
+            group_by=group_by,
+            where_expr=value["whereExpr"],
+            metadata=metadata,
+            cur=cur,
+            computed_columns=None,
+        )
+        all_results = []
+        for tups in results:
+            all_results.extend([int(v) for v in tups[0].split(",")])
+        st.write(f"All {len(all_results)} matching values from column **{value['columnName']}**")
+        st.write(sorted(all_results))
     else:
         st.write(value)
 
@@ -284,10 +345,47 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
         st.rerun()
 
 
-@st.dialog("Float Viewer", width="large")
+@st.dialog(" ", width="large")
 def render_float_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        st.write("TODO: float group")
+        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+        st.title("%s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+        results = select_histogram(
+            value["dgid"],
+            group_by=group_by,
+            where=value["whereExpr"],
+            column_name=value["columnName"],
+            column_value=value["columnValue"],
+            where_description=None,
+            computed_columns=None,
+            where_expr=value["whereExpr"],
+        )
+        if results["type"] == "histogram":
+            color = get_color(value["columnName"])
+            fig = go.Figure(
+                data=[go.Bar(
+                    x=results["labels"],
+                    y=results["bins"],
+                    marker_color=color,
+                )]
+            )
+            columns = st.columns([2, 1])
+            columns[0].plotly_chart(fig)
+            columns[1].markdown("## Statistics")
+            columns[1].markdown("**25%%**: %s" % results["statistics"]["25%"])
+            columns[1].markdown("**50%%**: %s" % results["statistics"]["50%"])
+            columns[1].markdown("**75%%**: %s" % results["statistics"]["75%"])
+            columns[1].markdown("**count**: %s" % results["statistics"]["count"])
+            columns[1].markdown("**max**: %s" % results["statistics"]["max"])
+            columns[1].markdown("**mean**: %s" % results["statistics"]["mean"])
+            columns[1].markdown("**median**: %s" % results["statistics"]["median"])
+            columns[1].markdown("**min**: %s" % results["statistics"]["min"])
+            columns[1].markdown("**std**: %s" % results["statistics"]["std"])
+            columns[1].markdown("**sum**: %s" % results["statistics"]["sum"])
+            
+        elif results["type"] == "verbatim":
+            value = results["value"]
+            st.write(value)
     else:
         st.write(value)
 
@@ -296,7 +394,7 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
         st.rerun()
 
 
-@st.dialog("Boolean Viewer", width="large")
+@st.dialog(" ", width="large")
 def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         st.write("TODO: float group")
@@ -308,7 +406,7 @@ def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
         st.rerun()
 
 
-@st.dialog("JSON Viewer", width="large")
+@st.dialog(" ", width="large")
 def render_json_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         st.write("TODO: float group")
