@@ -28,7 +28,7 @@ def get_hash(string):
 class AttributeNode:
     def __init__(self, obj, attr):
         self.obj = obj
-        self.attr = attr
+        self.attr = attr.replace("__", " ")
 
     def __str__(self):
         if self.obj in ["random", "math", "datetime", "statistics"]:

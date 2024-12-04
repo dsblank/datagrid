@@ -313,11 +313,13 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
             st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            # FIXME:
             st.json(value)
         else:
             st.title("Text data")
             st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
     else:
+        st.title("Text data")
         st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
 
     if st.button("Done", type="primary"):
@@ -328,26 +330,31 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
-        conn = get_database_connection(value["dgid"])
-        cur = conn.cursor()
-        metadata = get_metadata(conn)
-        results = select_group_by_rows(
-            column_name=value["columnName"],
-            column_value=value["columnValue"],
-            group_by=group_by,
-            where_expr=value["whereExpr"],
-            metadata=metadata,
-            cur=cur,
-            computed_columns=None,
-        )
-        all_results = []
-        for tups in results:
-            all_results.extend([int(v) for v in tups[0].split(",")])
-        st.write(f"All {len(all_results)} matching values from column **{value['columnName']}**")
-        st.write(sorted(all_results))
+        if isinstance(value, dict):
+            where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            conn = get_database_connection(value["dgid"])
+            cur = conn.cursor()
+            metadata = get_metadata(conn)
+            results = select_group_by_rows(
+                column_name=value["columnName"],
+                column_value=value["columnValue"],
+                group_by=group_by,
+                where_expr=value["whereExpr"],
+                metadata=metadata,
+                cur=cur,
+                computed_columns=None,
+            )
+            all_results = []
+            for tups in results:
+                all_results.extend([int(v) for v in tups[0].split(",")])
+            st.write(f"All {len(all_results)} matching values from column **{value['columnName']}**")
+            st.write(sorted(all_results))
+        else:
+            st.title("Integer data")
+            st.write(value)
     else:
+        st.title("Integer data")
         st.write(value)
 
     if st.button("Done", type="primary"):
@@ -398,8 +405,10 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
                 value = results["value"]
                 st.write(value)
         else:
+            st.title("Float data")
             st.write(value)
     else:
+        st.title("Float data")
         st.write(value)
 
     if st.button("Done", type="primary"):
@@ -410,10 +419,15 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
-        st.write("TODO: float group")
+        if isinstance(value, dict):
+            where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+        else:
+            st.title("Boolean data")
+
+        st.write("TODO: boolean group")
     else:
+        st.title("Boolean data")
         st.write(value)
 
     if st.button("Done", type="primary"):
@@ -424,10 +438,15 @@ def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_json_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
-        st.write("TODO: float group")
+        if isinstance(value, dict):
+            where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+        else:
+            st.title("JSON data")
+
+        st.write("TODO: json group")
     else:
+        st.title("JSON data")
         st.json(value)
 
     if st.button("Done", type="primary"):
