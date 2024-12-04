@@ -37,11 +37,13 @@ def build_link(c, r, value):
     return """<a href="" id="%s,%s" style="color: black;">%s</a>""" % (c, r, value)
 
 
-def format_text(value):
+def format_text(value, width="80%"):
+    if not isinstance(value, str):
+        return value
     if len(value) < 25:  ## and count_unique < 2000
         background = get_color(value)
         color = get_contrasting_color(background)
-        value = f"""<div style="background: {background}; color: {color}; width: 80%; text-align: center; border-radius: 50px; margin-left: 10%;">{value}</div>"""
+        value = f"""<div style="background: {background}; color: {color}; width: {width}; text-align: center; border-radius: 50px; margin-left: 10%;">{value}</div>"""
     return value
 
 
@@ -226,6 +228,8 @@ def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id):
 @st.dialog(" ", width="large")
 def render_image_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
+        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
         results = select_asset_group(
             experiment,
             experiment.id,
@@ -306,11 +310,15 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_text_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        st.write("TODO: text group")
-        # If too many, just show count
-        # else show category plot
+        if isinstance(value, dict):
+            where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            st.json(value)
+        else:
+            st.title("Text data")
+            st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
     else:
-        st.write(value)
+        st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
 
     if st.button("Done", type="primary"):
         st.session_state["datagrid"]["table_id"] += 1
@@ -320,6 +328,8 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
+        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
         conn = get_database_connection(value["dgid"])
         cur = conn.cursor()
         metadata = get_metadata(conn)
@@ -348,43 +358,46 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_float_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
-        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-        st.title("%s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
-        results = select_histogram(
-            value["dgid"],
-            group_by=group_by,
-            where=value["whereExpr"],
-            column_name=value["columnName"],
-            column_value=value["columnValue"],
-            where_description=None,
-            computed_columns=None,
-            where_expr=value["whereExpr"],
-        )
-        if results["type"] == "histogram":
-            color = get_color(value["columnName"])
-            fig = go.Figure(
-                data=[go.Bar(
-                    x=results["labels"],
-                    y=results["bins"],
-                    marker_color=color,
-                )]
+        if isinstance(value, dict):
+            where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            results = select_histogram(
+                value["dgid"],
+                group_by=group_by,
+                where=value["whereExpr"],
+                column_name=value["columnName"],
+                column_value=value["columnValue"],
+                where_description=None,
+                computed_columns=None,
+                where_expr=value["whereExpr"],
             )
-            columns = st.columns([2, 1])
-            columns[0].plotly_chart(fig)
-            columns[1].markdown("## Statistics")
-            columns[1].markdown("**25%%**: %s" % results["statistics"]["25%"])
-            columns[1].markdown("**50%%**: %s" % results["statistics"]["50%"])
-            columns[1].markdown("**75%%**: %s" % results["statistics"]["75%"])
-            columns[1].markdown("**count**: %s" % results["statistics"]["count"])
-            columns[1].markdown("**max**: %s" % results["statistics"]["max"])
-            columns[1].markdown("**mean**: %s" % results["statistics"]["mean"])
-            columns[1].markdown("**median**: %s" % results["statistics"]["median"])
-            columns[1].markdown("**min**: %s" % results["statistics"]["min"])
-            columns[1].markdown("**std**: %s" % results["statistics"]["std"])
-            columns[1].markdown("**sum**: %s" % results["statistics"]["sum"])
-            
-        elif results["type"] == "verbatim":
-            value = results["value"]
+            if results["type"] == "histogram":
+                color = get_color(value["columnName"])
+                fig = go.Figure(
+                    data=[go.Bar(
+                        x=results["labels"],
+                        y=results["bins"],
+                        marker_color=color,
+                    )]
+                )
+                columns = st.columns([2, 1])
+                columns[0].plotly_chart(fig)
+                columns[1].markdown("## Statistics")
+                columns[1].markdown("**25%%**: %s" % results["statistics"]["25%"])
+                columns[1].markdown("**50%%**: %s" % results["statistics"]["50%"])
+                columns[1].markdown("**75%%**: %s" % results["statistics"]["75%"])
+                columns[1].markdown("**count**: %s" % results["statistics"]["count"])
+                columns[1].markdown("**max**: %s" % results["statistics"]["max"])
+                columns[1].markdown("**mean**: %s" % results["statistics"]["mean"])
+                columns[1].markdown("**median**: %s" % results["statistics"]["median"])
+                columns[1].markdown("**min**: %s" % results["statistics"]["min"])
+                columns[1].markdown("**std**: %s" % results["statistics"]["std"])
+                columns[1].markdown("**sum**: %s" % results["statistics"]["sum"])
+
+            elif results["type"] == "verbatim":
+                value = results["value"]
+                st.write(value)
+        else:
             st.write(value)
     else:
         st.write(value)
@@ -397,6 +410,8 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
+        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
         st.write("TODO: float group")
     else:
         st.write(value)
@@ -409,6 +424,8 @@ def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
 @st.dialog(" ", width="large")
 def render_json_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
+        where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
+        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
         st.write("TODO: float group")
     else:
         st.json(value)
