@@ -27,6 +27,7 @@ import uuid
 
 import numpy as np
 import six
+import streamlit as st
 
 from .._typing import IO, Any
 
@@ -35,6 +36,11 @@ RESERVED_NAMES = ["row-id"]
 LOGGER = logging.getLogger(__name__)
 INFINITY = float("inf")
 CONVERSION_METHODS = ["as_py", "to_pydatetime"]
+
+
+@st.cache_data(persist="disk")
+def experiment_get_asset(_experiment, experiment_id, asset_id, return_type):
+    return _experiment.get_asset(asset_id, return_type=return_type)
 
 
 def contain(image, size, method=None):
@@ -65,6 +71,7 @@ def download(url, filename):
         g = urllib.request.urlopen(url, timeout=5)
         with open(filename, "wb") as f:
             f.write(g.read())
+
 
 def download_data(url):
     g = urllib.request.urlopen(url, timeout=5)
@@ -559,14 +566,14 @@ def get_rgb_from_hex(color):
 def get_contrasting_color(color):
     # color in hex
     colors = get_rgb_from_hex(color)
-    r, g, b  = colors
+    r, g, b = colors
     o = round((r * 299 + g * 587 + b * 114) / 1000)
-    return '#000000' if o > 125 else '#ffffff'
+    return "#000000" if o > 125 else "#ffffff"
 
 
 def get_unique_color(hash):
     # New color ordering:
-    #colors = [
+    # colors = [
     #    '#e51772',
     #    '#0096c7',
     #    '#00b4d8',
@@ -582,23 +589,23 @@ def get_unique_color(hash):
     #    '#860dab',
     #    '#cf0057',
     #    '#ffd51d'
-    #]
+    # ]
     colors = [
-       "#ffd51d",
-       "#ffbd00",
-       "#ff8900",
-       "#fb7628",
-       "#ff4747",
-       "#e51772",
-       "#cf0057",
-       "#6e1d89",
-       "#860dab",
-       "#49a5bd",
-       "#0096c7",
-       "#00b4d8",
-       "#12a592",
-       "#16cab2",
-       "#41ead4",
+        "#ffd51d",
+        "#ffbd00",
+        "#ff8900",
+        "#fb7628",
+        "#ff4747",
+        "#e51772",
+        "#cf0057",
+        "#6e1d89",
+        "#860dab",
+        "#49a5bd",
+        "#0096c7",
+        "#00b4d8",
+        "#12a592",
+        "#16cab2",
+        "#41ead4",
     ]
     return colors[hash % len(colors)]
 
@@ -620,10 +627,10 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
     pixels = None
 
     if includes is not None:
-        #transparency = "88"
+        # transparency = "88"
         line_width = 5
     else:
-        #transparency = "FF"
+        # transparency = "FF"
         line_width = 1
 
     # assumes images keep aspect ratio
@@ -713,7 +720,7 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
             if "points" in annotation and annotation["points"]:
                 if canvas is None:
                     canvas = ImageDraw.Draw(image)
-                color = get_color(annotation["label"]) # + transparency
+                color = get_color(annotation["label"])  # + transparency
                 for region in annotation["points"]:
                     canvas.polygon([value * scale for value in region], fill=color)
             if "markers" in annotation and annotation["markers"]:

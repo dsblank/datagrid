@@ -28,6 +28,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import PIL.Image
 import PIL.ImageDraw
+import streamlit as st
 
 from ..datatypes.utils import (
     generate_thumbnail,
@@ -35,6 +36,7 @@ from ..datatypes.utils import (
     image_to_fp,
     is_nan,
     pytype_to_dgtype,
+    experiment_get_asset,
 )
 from .computed_columns import unify_computed_columns, update_state
 from .utils import Cache, process_about, safe_compile, safe_env
@@ -881,6 +883,7 @@ def get_dg_path(dgid):
     else:
         raise Exception("Datagrid name must end in .datagrid or .dg")
 
+
 def get_value_column_name(row, column_name, columns):
     index = columns.index(column_name)
     return row[index]
@@ -1270,7 +1273,10 @@ def select_category(
     return results_json
 
 
+@st.cache_data(persist="disk")
 def select_asset_group_thumbnail(
+    _experiment,
+    experiment_id,
     dgid,
     group_by,
     where,
@@ -1293,6 +1299,8 @@ def select_asset_group_thumbnail(
     image_size = tuple(image_size)
 
     results_json = select_asset_group(
+        _experiment,
+        experiment_id,
         dgid,
         group_by,
         where,
@@ -1312,7 +1320,14 @@ def select_asset_group_thumbnail(
     images = []
     for asset_id in results_json["values"]:
         if asset_id != "None":
-            image = select_asset(dgid, asset_id, thumbnail=True, return_image=True)
+            image = select_asset(
+                _experiment,
+                experiment_id,
+                dgid,
+                asset_id,
+                thumbnail=True,
+                return_image=True,
+            )
             if image:
                 background = PIL.Image.new(
                     mode="RGBA", size=image_size, color=background_color
@@ -1341,7 +1356,10 @@ def select_asset_group_thumbnail(
     return fp.read()
 
 
+@st.cache_data(persist="disk")
 def select_asset_group(
+    _experiment,
+    experiment_id,
     dgid,
     group_by,
     where,
@@ -1441,15 +1459,20 @@ def select_asset_group(
             results_json = {
                 "type": "asset-group",
                 "assetType": get_type_column_name(column_name, columns, column_types),
-                "values": values[column_offset : column_offset + column_limit]
-                if column_limit is not None
-                else values,
+                "values": (
+                    values[column_offset : column_offset + column_limit]
+                    if column_limit is not None
+                    else values
+                ),
                 "total": total,
             }
     return results_json
 
 
+@st.cache_data(persist="disk")
 def select_asset_group_metadata(
+    _experiment,
+    experiment_id,
     dgid,
     group_by,
     where,
@@ -2392,7 +2415,7 @@ def select_projection_data(
         traces = PROJECTION_TRACE_CACHE.get(key)[:]
 
         # Next, add the selected asset:
-        asset_data_raw = select_asset(dgid, asset_id)
+        asset_data_raw = select_asset(_experiment, experiment_id, dgid, asset_id)
         asset_data = json.loads(asset_data_raw)
         transform = asset_data["projection_transform"]
         if asset_data["color"]:
@@ -2458,59 +2481,33 @@ def select_projection_data(
     return traces
 
 
-def select_asset(dgid, asset_id, thumbnail=False, return_image=False):
-    conn = get_database_connection(dgid)
-    cur = conn.cursor()
-    selection = (
-        "SELECT asset_data, asset_type, asset_thumbnail, "
-        + 'json_extract(asset_metadata, "$.remote") as asset_remote, '
-        + 'json_extract(asset_metadata, "$.annotations") as asset_annotations '
-        + 'from assets where asset_id = "{asset_id}";'
+@st.cache_data(persist="disk")
+def select_asset(
+    _experiment, experiment_id, dgid, asset_id, thumbnail=False, return_image=False
+):
+    data = json.loads(asset_id.replace("&comma;", ","))
+    # FIXME: add to asset JSON
+    asset_type = "Image"
+    asset_annotations = data["annotations"]
+    asset_id = data["asset_id"]
+    asset_data = experiment_get_asset(
+        _experiment, experiment_id, asset_id, return_type="binary"
     )
-    env = {"asset_id": asset_id}
-    selection_sql = selection.format(**env)
-    LOGGER.debug("SQL %s", selection_sql)
-    start_time = time.time()
-    row = cur.execute(selection_sql).fetchone()
-    LOGGER.debug("SQL %s seconds", time.time() - start_time)
 
-    if row:
-        asset_data, asset_type, asset_thumbnail, asset_remote, asset_annotations = row
-        if asset_remote:
-            # FIXME: asset_type == ["Image"]
-            # FIXME: move to Image class
-            # FIXME: use a cache?
-            remote = json.loads(asset_remote)
-            experiment_key = remote["experimentId"]
-            asset_id = remote["assetId"]
-            if remote["framework"] == "comet":
-                import comet_ml
-                api = comet_ml.API()
-                asset_data = api._client.get_experiment_asset(
-                    asset_id=asset_id,
-                    experiment_key=experiment_key,
-                    return_type="binary",
-                )
-            else:
-                raise Exception("Unknown remote type")
-
-        if thumbnail and asset_type in ["Image", "PointCloud"]:
-            if asset_annotations:
-                asset_annotations = json.loads(asset_annotations)
-            thumbnail_data, thumbnail_image = generate_thumbnail(
-                asset_data, annotations=asset_annotations, return_image=True
-            )
-            if return_image:
-                return thumbnail_image
-            else:
-                return thumbnail_data
+    if thumbnail and asset_type in ["Image", "PointCloud"]:
+        thumbnail_data, thumbnail_image = generate_thumbnail(
+            asset_data, annotations=asset_annotations, return_image=True
+        )
+        if return_image:
+            return thumbnail_image
         else:
-            return asset_data
+            return thumbnail_data
+    else:
+        return asset_data
 
-    return None
 
-
-def select_asset_metadata(dgid, asset_id):
+@st.cache_data(persist="disk")
+def select_asset_metadata(_experiment, experiment_id, dgid, asset_id):
     conn = get_database_connection(dgid)
     cur = conn.cursor()
     selection = 'SELECT asset_metadata from assets where asset_id = "{asset_id}";'

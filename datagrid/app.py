@@ -12,12 +12,14 @@ from .datatypes.utils import (
     download_data,
     image_to_fp,
     draw_annotations_on_image,
+    experiment_get_asset,
 )
 from .server.queries import (
     select_query_page,
     select_query_count,
     select_category,
     select_histogram,
+    select_asset_group_thumbnail,
     generate_chart_image,
     get_completions,
     verify_where,
@@ -101,7 +103,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
                     results = select_histogram(
                         DATAGRID,
                         group_by,
-                        where=None,
+                        where=where,
                         column_name=column_name,
                         column_value=value["columnValue"],
                         where_description=None,
@@ -127,9 +129,30 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
                         value = results["value"]
 
                 elif value["type"] == "asset-group":
-                    # TODO
-                    value = value["type"]
-
+                    image_data = select_asset_group_thumbnail(
+                        experiment,
+                        experiment.id,
+                        DATAGRID,
+                        group_by,
+                        where=where,
+                        column_name=column_name,
+                        column_value=value["columnValue"],
+                        column_offset=0,
+                        computed_columns=None,
+                        where_expr=where,
+                        gallery_size=[3, 2],
+                        background_color=(255, 255, 255),
+                        image_size=(100, 55),
+                        border_width=1,
+                        distinct=True,
+                    )
+                    data = (
+                        f"data:image/png;base64,{base64.b64encode(image_data).decode()}"
+                    )
+                    value = """<img src="%s" style="max-height: %spx;"></img>""" % (
+                        data,
+                        max_height,
+                    )
                 else:
                     raise Exception("Unknown group type: %r" % value["type"])
             else:
@@ -154,9 +177,9 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
                     "utf-8"
                 )
 
-                value = (
-                    """<img src="%s" style="max-height: %spx; width: 90%%"></img>"""
-                    % (data, max_height)
+                value = """<img src="%s" style="max-height: %spx;"></img>""" % (
+                    data,
+                    max_height,
                 )
             elif schema[column_name]["type"] == "TEXT":
                 value = format_text(value)
@@ -167,6 +190,8 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
             elif schema[column_name]["type"] == "BOOLEAN":
                 value = format_text("True" if value else "False")
             elif schema[column_name]["type"] == "JSON":
+                pass
+            elif schema[column_name]["type"] == "ROW_ID":
                 pass
             else:
                 value = "Unsupported row render type: %s" % schema[column_name]["type"]
@@ -182,6 +207,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
     return retval
 
 
+@st.spinner("Building datagrid...")
 def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id):
     width = 200 if group_by else 150
     retval = f"""<table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
@@ -210,8 +236,11 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
             default=value["assetData"]["labels"],
         )
 
-        asset_data = experiment.get_asset(
-            value["assetData"]["asset_id"], return_type="binary"
+        asset_data = experiment_get_asset(
+            experiment,
+            experiment.id,
+            value["assetData"]["asset_id"],
+            return_type="binary",
         )
         image = generate_image(asset_data)
         draw_annotations_on_image(
