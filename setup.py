@@ -67,7 +67,6 @@ setup_args = dict(
         "datagrid",
         "datagrid.server",
         "datagrid._datatypes",
-        "datagrid.integrations",
     ],
     python_requires=">=3.7",
     license="MIT License",
