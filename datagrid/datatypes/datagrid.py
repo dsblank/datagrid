@@ -70,7 +70,7 @@ def _convert_setting(value, desired_type):
         raise Exception("unknown setting type: %r" % desired_type)
 
 
-class _DataGrid:
+class DataGrid:
     """
     DataGrid instances have the following atrributes:
 
@@ -483,7 +483,7 @@ class _DataGrid:
                 key: value for key, value in enumerate(dataset.target_names)
             }
 
-        datagrid = _DataGrid(
+        datagrid = DataGrid(
             name=dataset_name,
             columns=list(dataset.feature_names) + ["target"],
         )
@@ -517,7 +517,7 @@ class _DataGrid:
         filename = download_filename(filename)
         table = pyarrow.parquet.read_table(filename, **kwargs)
         data = table.to_pylist()
-        dg = _DataGrid(data=data)
+        dg = DataGrid(data=data)
         if "." in filename:
             dg_filename, extension = filename.rsplit(".", 1)
             dg.name = dg_filename
@@ -526,6 +526,93 @@ class _DataGrid:
             dg.name = filename
             dg.filename = filename + ".datagrid"
         return dg
+
+    @classmethod
+    def read_dataframe(cls, dataframe, **kwargs):
+        """
+        Takes a columnar pandas dataframe and returns a DataGrid.
+
+        Example:
+        ```python
+        >>> dg = DataGrid.read_dataframe(df)
+        ```
+        """
+        print("Reading DataFrame...")
+        columns = list(dataframe.columns)
+        data = [list(row) for r, row in ProgressBar(dataframe.iterrows())]
+        return DataGrid(data=data, columns=columns, **kwargs)
+
+    @classmethod
+    def read_json(cls, filename, **kwargs):
+        """
+        Read JSON data, or JSON or JSON Line files [1]. JSON should be a
+        list of objects, or a series of objects, one per line.
+
+        Args:
+            filename: the name of the file or URL to read the JSON from,
+                or the data
+            datetime_format: (str) the Python date format that dates
+                are read. For example, use "%Y/%m/%d" for dates like
+                "2022/12/01".
+            heuristics: (bool) whether to guess that some float values are
+                datetime representations
+            name: (str) the name to use for the DataGrid
+            converters: (dict) dictionary of functions where the key
+                is the columns name, and the value is a function that
+                takes a value and converts it to the proper type and
+                form.
+
+        Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
+            extension. If so, it will be downloaded and unarchived. The JSON
+            file is assumed to be in the archive with the same name as the
+            file/URL. If it is not, then please use the datagrid.download()
+            function to download, and then read from the downloaded file.
+
+        [1] - https://jsonlines.org/
+
+        Example:
+        ```python
+        >>> from datagrid import DataGrid
+        >>> dg = DataGrid.read_json("json_line_file.json")
+        >>> dg = DataGrid.read_json("https://instances.social/instances.json")
+        >>> dg = DataGrid.read_json("https://company.com/data.json.zip")
+        >>> dg = DataGrid.read_json("https://company.com/data.json.gz")
+        >>> dg.save()
+        ```
+        """
+        print("Reading JSON data...")
+        filename = download_filename(filename)
+
+        try:
+            dg = DataGrid(**kwargs)
+
+            if os.path.isfile(filename):
+                fp = open(filename)
+
+                if "." in filename:
+                    dg_filename, extension = filename.rsplit(".", 1)
+                    dg.name = dg_filename
+                    dg.filename = dg_filename + ".datagrid"
+                else:
+                    dg.name = filename
+                    dg.filename = filename + ".datagrid"
+            else:
+                # filename is the data? Let's see:
+                fp = io.StringIO(filename)
+
+            json_lines = fp.read(1) == "{"
+            fp.seek(0)
+            if json_lines:
+                for line in ProgressBar(fp):
+                    dg.append(json.loads(line))
+            else:
+                dg.extend(json.load(fp))
+
+            return dg
+        except Exception:
+            raise Exception(
+                "Unable to find JSON file, or parse JSON data: %r" % filename
+            )
 
     @classmethod
     def read_datagrid(cls, filename, **kwargs):
@@ -540,7 +627,95 @@ class _DataGrid:
         >>> dg = DataGrid.read_datagrid("mnist.datagrid")
         ```
         """
-        return _DataGrid(filename, **kwargs)
+        return DataGrid(filename, **kwargs)
+
+    @classmethod
+    def read_csv(
+        cls,
+        filename,
+        header=0,
+        sep=",",
+        quotechar='"',
+        datetime_format=None,
+        heuristics=False,
+        converters=None,
+    ):
+        """
+        Takes a CSV filename and returns a DataGrid.
+
+        Args:
+            filename: the CSV file to import
+            header: (optional, int) row number (zero-based) of column headings
+            sep: (optional, str) used in the CSV parsing
+            quotechar: (optional, str) used in the CSV parsing
+            datetime_format: (optional, str) the datetime format
+            heuristics: (optional, bool) whether to guess that some float values are
+                datetime representations
+            converters: (optional, dict) A dictionary of functions for converting values
+                in certain columns. Keys are column labels.
+
+        Example:
+        ```python
+        >>> dg = DataGrid.read_csv("results.csv")
+        ```
+        """
+        if (
+            not isinstance(header, int)
+            and not isinstance(header, bool)
+            and header is not None
+        ):
+            raise ValueError(
+                "header should be an int indicating header row (zero-based) or None"
+            )
+
+        columns = None
+        read_header = False
+        data = []
+        filename = download_filename(filename)
+        print("Loading CSV file %r..." % filename)
+        with open(filename) as csvfile:
+            reader = csv.reader(csvfile, delimiter=sep, quotechar=quotechar)
+            for r, row in ProgressBar(enumerate(reader)):
+                if header is None:
+                    read_header = True
+                    header = 0
+                    columns = (
+                        columns
+                        if columns
+                        else list(create_columns(len(row)).keys())[1:]
+                    )
+                elif not read_header:
+                    if header == r:
+                        columns = row
+                        read_header = True
+                        continue
+
+                # Don't read any rows if header > 0
+                if header is not None and r < header:
+                    continue
+
+                data.append(
+                    [
+                        convert_string_to_value(
+                            value,
+                            heuristics,
+                            datetime_format,
+                            colname,
+                            converters,
+                        )
+                        for (value, colname) in zip(row, columns)
+                    ]
+                )
+
+        dg = DataGrid(data=data, columns=columns)
+        if "." in filename:
+            dg_filename, extension = filename.rsplit(".", 1)
+            dg.name = dg_filename
+            dg.filename = dg_filename + ".datagrid"
+        else:
+            dg.name = filename
+            dg.filename = filename + ".datagrid"
+        return dg
 
     def info(self):
         """

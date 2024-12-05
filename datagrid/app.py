@@ -4,7 +4,7 @@ import base64
 import streamlit as st
 import plotly.graph_objects as go
 
-from ._datatypes.utils import (
+from .datatypes.utils import (
     get_color,
     get_rgb_from_hex,
     get_contrasting_color,
