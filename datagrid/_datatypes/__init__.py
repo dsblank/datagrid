@@ -14,7 +14,7 @@
 from .audio import Audio
 from .base import Asset
 from .curve import Curve
-from .datagrid import DataGrid  # noqa
+from .datagrid import _DataGrid  # noqa
 from .embedding import Embedding
 from .image import Image
 from .serialize import register_asset_type

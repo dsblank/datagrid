@@ -17,8 +17,8 @@ import time
 import urllib
 
 from ._version import __version__  # noqa
-from .datatypes import (  # noqa
-    DataGrid,
+from ._datatypes import (  # noqa
+    _DataGrid,
 )
 from .server.queries import sqlite_query, sqlite_query_explain  # noqa
 from .utils import (
@@ -217,77 +217,6 @@ def show(
         webbrowser.open(url, autoraise=True)
 
 
-def read_sklearn(dataset_name):
-    """
-    Load a sklearn dataset by name.
-
-    Args:
-        dataset_name: (str) one of: 'boston', 'breast_cancer',
-            'diabetes', 'digits', 'files', 'iris',
-            'linnerud', 'sample_image', 'sample_images',
-            'svmlight_file', 'svmlight_files', 'wine'
-
-    Example:
-    ```python
-    >>> dg = kg.read_sklearn("iris")
-    ```
-    """
-    return DataGrid.read_sklearn(dataset_name)
-
-
-def read_parquet(filename, **kwargs):
-    """
-    Takes a parquet filename or URL and returns a DataGrid.
-
-    Note: requires pyarrow to be installed.
-
-    Example:
-    ```python
-    >>> dg = DataGrid.read_parquet("userdata1.parquet")
-    ```
-    """
-    return DataGrid.read_parquet(filename, **kwargs)
-
-
-def read_dataframe(dataframe, **kwargs):
-    """
-    Takes a columnar pandas dataframe and returns a DataGrid.
-
-    Args:
-        dataframe: (pandas.DataFrame) the DataFrame to read from.
-            Only works on in-memory DataFrames. If your DataFrame is
-            stored on disk, you will need to load it first.
-        datetime_format: (str) the Python date format that dates
-            are read. For example, use "%Y/%m/%d" for dates like
-            "2022/12/01".
-        heuristics: (bool) whether to guess that some float values are
-            datetime representations
-        name: (str) the name to use for the DataGrid
-        filename: (str) the filename to save the DataGrid to
-        converters: (dict) dictionary of functions where the key
-            is the columns name, and the value is a function that
-            takes a value and converts it to the proper type and
-            form.
-
-    Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
-        extension. If so, it will be downloaded and unarchived. The JSON
-        file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the datagrid.download()
-        function to download, and then read from the downloaded file.
-
-    Examples:
-
-    ```python
-    >>> import datagrid
-    >>> from pandas import DataFrame
-    >>> df = DataFrame(...)
-    >>> dg = datagrid.read_dataframe(df)
-    >>> dg.save()
-    ```
-    """
-    return DataGrid.read_dataframe(dataframe, **kwargs)
-
-
 def read_datagrid(filename, **kwargs):
     """
     Reads a DataGrid from a filename or URL. Returns
@@ -313,46 +242,7 @@ def read_datagrid(filename, **kwargs):
     >>> dg.save()
     ```
     """
-    return DataGrid.read_datagrid(filename, **kwargs)
-
-
-def read_json(filename, **kwargs):
-    """
-    Read JSON or JSON Line files [1]. JSON should be a list of objects,
-    or a file with object on each line.
-
-    Args:
-        filename: the name of the file or URL to read the JSON from
-        datetime_format: (str) the Python date format that dates
-            are read. For example, use "%Y/%m/%d" for dates like
-            "2022/12/01".
-        heuristics: (bool) whether to guess that some float values are
-            datetime representations
-        name: (str) the name to use for the DataGrid
-        converters: (dict) dictionary of functions where the key
-            is the columns name, and the value is a function that
-            takes a value and converts it to the proper type and
-            form.
-
-    Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
-        extension. If so, it will be downloaded and unarchived. The JSON
-        file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the datagrid.download()
-        function to download, and then read from the downloaded file.
-
-    [1] - https://jsonlines.org/
-
-    Example:
-    ```python
-    >>> import datagrid as kg
-    >>> dg = kg.read_json("json_line_file.json")
-    >>> dg = kg.read_json("https://instances.social/instances.json")
-    >>> dg = kg.read_json("https://company.com/data.json.zip")
-    >>> dg = kg.read_json("https://company.com/data.json.gz")
-    >>> dg.save()
-    ```
-    """
-    return DataGrid.read_json(filename, **kwargs)
+    return _DataGrid.read_datagrid(filename, **kwargs)
 
 
 def download(url, ext=None):
@@ -380,46 +270,3 @@ def download(url, ext=None):
     return DataGrid.download(url, ext)
 
 
-def read_csv(
-    filename,
-    header=0,
-    sep=",",
-    quotechar='"',
-    heuristics=True,
-    datetime_format=None,
-    converters=None,
-):
-    """
-    Takes a CSV filename and returns a DataGrid.
-
-    Args:
-        filename: the CSV file or URL to import
-        header: (optional, int) row number (zero-based) of column headings
-        sep:  used in the CSV parsing
-        quotechar: used in the CSV parsing
-        heuristics: if True, guess that some numbers might be dates
-        datetime_format: (str) the Python date format that dates
-            are read. For example, use "%Y/%m/%d" for dates like
-            "2022/12/01".
-        converters: (dict, optional) A dictionary of functions for converting
-            values in certain columns. Keys are column labels.
-
-    Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
-        extension. If so, it will be downloaded and unarchived. The JSON
-        file is assumed to be in the archive with the same name as the
-        file/URL. If it is not, then please use the datagrid.download()
-        function to download, and then read from the downloaded file.
-
-    Examples:
-
-    ```python
-    >>> import datagrid
-    >>> dg = datagrid.read_csv("example.csv")
-    >>> dg = datagrid.read_csv("http://example.com/example.csv")
-    >>> dg = datagrid.read_csv("http://example.com/example.csv.zip")
-    >>> dg.save()
-    ```
-    """
-    return DataGrid.read_csv(
-        filename, header, sep, quotechar, datetime_format, heuristics, converters
-    )
