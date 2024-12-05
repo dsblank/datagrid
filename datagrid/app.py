@@ -14,6 +14,7 @@ from .datatypes.utils import (
     image_to_fp,
     draw_annotations_on_image,
     experiment_get_asset,
+    THUMBNAIL_SIZE,
 )
 from .server.queries import (
     select_query_page,
@@ -149,16 +150,19 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
                         where_expr=where,
                         gallery_size=[3, 2],
                         background_color=(255, 255, 255),
-                        image_size=(100, 55),
+                        image_size=(80, 50),
                         border_width=1,
                         distinct=True,
                     )
                     data = (
                         f"data:image/png;base64,{base64.b64encode(image_data).decode()}"
                     )
-                    value = """<img src="%s" style="max-height: %spx;"></img>""" % (
-                        data,
-                        max_height,
+                    value = (
+                        """<img src="%s" style="max-height: %spx; width: 100%%"></img>"""
+                        % (
+                            data,
+                            max_height,
+                        )
                     )
                 else:
                     raise Exception("Unknown group type: %r" % value["type"])
@@ -171,7 +175,10 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
             if schema[column_name]["type"] == "IMAGE-ASSET":
 
                 asset_data = experiment_get_asset(
-                    experiment, experiment.id, value["assetData"]["asset_id"], return_type="binary"
+                    experiment,
+                    experiment.id,
+                    value["assetData"]["asset_id"],
+                    return_type="binary",
                 )
 
                 bytes, image = generate_thumbnail(
@@ -216,7 +223,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
 
 @st.spinner("Building datagrid...")
 def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id):
-    width = 200 if group_by else 150
+    width = 300 if group_by else 150
     retval = f"""<table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys(), width)
     for r, row in enumerate(data):
@@ -229,7 +236,10 @@ def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id):
 def render_image_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-        st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+        st.title(
+            "Column %s, where %s == %r%s"
+            % (value["columnName"], group_by, value["columnValue"], where_str)
+        )
         results = select_asset_group(
             experiment,
             experiment.id,
@@ -238,7 +248,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
             where=value["whereExpr"],
             column_name=value["columnName"],
             column_value=value["columnValue"],
-            column_offset=0, # FIXME to allow paging of images
+            column_offset=0,  # FIXME to allow paging of images
             column_limit=20,
             computed_columns=None,
             where_expr=value["whereExpr"],
@@ -256,21 +266,24 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
                 annotations=value["annotations"],
                 return_image=True,
             )
-            
+
             result = image_to_fp(image, "png").read()
             image_data = "data:image/png;base64," + base64.b64encode(result).decode(
                 "utf-8"
             )
 
             url = f"{BASEURL}/{experiment.workspace}/{experiment.project_name}/{experiment.id}?experiment-tab=images&graphicsAssetId={value['asset_id']}"
-            images += """<a href="%s"><img src="%s" style="padding: 5px;"></img></a>""" % (url, image_data)
+            images += (
+                """<a href="%s"><img src="%s" style="padding: 5px;"></img></a>"""
+                % (url, image_data)
+            )
 
         if len(data) < 20:
             st.write(f"Total {len(data)} images in group; click image to open in tab")
         else:
             st.write("First 20 images in group; click image to open in tab")
         st.markdown(images, unsafe_allow_html=True)
-            
+
     else:
         st.link_button(
             "Open image in tab",
@@ -312,7 +325,10 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            st.title(
+                "Column %s, where %s == %r%s"
+                % (value["columnName"], group_by, value["columnValue"], where_str)
+            )
             # FIXME:
             st.json(value)
         else:
@@ -332,7 +348,10 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            st.title(
+                "Column %s, where %s == %r%s"
+                % (value["columnName"], group_by, value["columnValue"], where_str)
+            )
             conn = get_database_connection(value["dgid"])
             cur = conn.cursor()
             metadata = get_metadata(conn)
@@ -348,7 +367,9 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
             all_results = []
             for tups in results:
                 all_results.extend([int(v) for v in tups[0].split(",")])
-            st.write(f"All {len(all_results)} matching values from column **{value['columnName']}**")
+            st.write(
+                f"All {len(all_results)} matching values from column **{value['columnName']}**"
+            )
             st.write(sorted(all_results))
         else:
             st.title("Integer data")
@@ -367,7 +388,10 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            st.title(
+                "Column %s, where %s == %r%s"
+                % (value["columnName"], group_by, value["columnValue"], where_str)
+            )
             results = select_histogram(
                 value["dgid"],
                 group_by=group_by,
@@ -381,11 +405,13 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
             if results["type"] == "histogram":
                 color = get_color(value["columnName"])
                 fig = go.Figure(
-                    data=[go.Bar(
-                        x=results["labels"],
-                        y=results["bins"],
-                        marker_color=color,
-                    )]
+                    data=[
+                        go.Bar(
+                            x=results["labels"],
+                            y=results["bins"],
+                            marker_color=color,
+                        )
+                    ]
                 )
                 columns = st.columns([2, 1])
                 columns[0].plotly_chart(fig)
@@ -421,7 +447,10 @@ def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            st.title(
+                "Column %s, where %s == %r%s"
+                % (value["columnName"], group_by, value["columnValue"], where_str)
+            )
         else:
             st.title("Boolean data")
 
@@ -440,7 +469,10 @@ def render_json_dialog(BASEURL, group_by, value, schema, experiment):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
-            st.title("Column %s, where %s == %r%s" % (value["columnName"], group_by, value["columnValue"], where_str))
+            st.title(
+                "Column %s, where %s == %r%s"
+                % (value["columnName"], group_by, value["columnValue"], where_str)
+            )
         else:
             st.title("JSON data")
 
