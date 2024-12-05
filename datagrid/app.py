@@ -182,7 +182,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
 
                 bytes, image = generate_thumbnail(
                     asset_data,
-                    annotations=value["assetData"]["annotations"],
+                    annotations=value["assetData"].get("annotations"),
                     return_image=True,
                 )
                 result = image_to_fp(image, "png").read()
@@ -264,7 +264,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
 
             bytes, image = generate_thumbnail(
                 asset_data,
-                annotations=value["annotations"],
+                annotations=value.get("annotations"),
                 return_image=True,
             )
 
@@ -294,9 +294,9 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
 
         labels = columns[0].pills(
             "Labels:",
-            sorted(value["assetData"]["labels"]),
+            sorted(value["assetData"].get("labels", [])),
             selection_mode="multi",
-            default=value["assetData"]["labels"],
+            default=value["assetData"].get("labels"),
         )
 
         asset_data = experiment_get_asset(
@@ -306,13 +306,14 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
             return_type="binary",
         )
         image = generate_image(asset_data)
-        draw_annotations_on_image(
-            image,
-            value["assetData"]["annotations"],
-            image.size[0],
-            image.size[1],
-            includes=labels,
-        )
+        if "annotations" in value["assetData"]:
+            draw_annotations_on_image(
+                image,
+                value["assetData"]["annotations"],
+                image.size[0],
+                image.size[1],
+                includes=labels,
+            )
 
         columns[1].image(image)
 

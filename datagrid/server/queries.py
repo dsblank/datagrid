@@ -2488,7 +2488,7 @@ def select_asset(
     data = json.loads(asset_id.replace("&comma;", ","))
     # FIXME: add to asset JSON
     asset_type = "Image"
-    asset_annotations = data["annotations"]
+    asset_annotations = data.get("annotations")
     asset_id = data["asset_id"]
     asset_data = experiment_get_asset(
         _experiment, experiment_id, asset_id, return_type="binary"
