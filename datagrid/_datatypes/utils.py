@@ -519,6 +519,7 @@ def generate_thumbnail(
 
     size = size if size else THUMBNAIL_SIZE
     image = generate_image(asset_data)
+    image = image.convert("RGB")
 
     if not force:
         # Don't force to size given, but make max height:
@@ -601,10 +602,10 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
     from .colormaps import get_colormap
 
     if includes is not None:
-        # transparency = "88"
+        transparency = "88"
         line_width = 5
     else:
-        # transparency = "FF"
+        transparency = "FF"
         line_width = 1
 
     canvas = None
@@ -681,7 +682,7 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
                 continue
             if "boxes" in annotation and annotation["boxes"]:
                 if canvas is None:
-                    canvas = ImageDraw.Draw(image)
+                    canvas = ImageDraw.Draw(image, "RGBA")
                 color = get_color(annotation["label"])
                 for box in annotation["boxes"]:
                     x, y, w, h = box
@@ -695,15 +696,15 @@ def draw_annotations_on_image(image, annotations, width, height, includes=None):
                     )
             if "points" in annotation and annotation["points"]:
                 if canvas is None:
-                    canvas = ImageDraw.Draw(image)
-                color = get_color(annotation["label"])
+                    canvas = ImageDraw.Draw(image, "RGBA")
+                color = get_color(annotation["label"]) + transparency
                 for region in annotation["points"]:
                     canvas.polygon([value * scale for value in region], fill=color)
             if "markers" in annotation and annotation["markers"]:
                 pass  # too small to see
             if "lines" in annotation and annotation["lines"]:
                 if canvas is None:
-                    canvas = ImageDraw.Draw(image)
+                    canvas = ImageDraw.Draw(image, "RGBA")
                 color = get_color(annotation["label"])
                 for line in annotation["lines"]:
                     x1, y1, x2, y2 = line
