@@ -66,7 +66,7 @@ setup_args = dict(
     packages=[
         "datagrid",
         "datagrid.server",
-        "datagrid.datatypes",
+        "datagrid._datatypes",
         "datagrid.integrations",
     ],
     python_requires=">=3.7",

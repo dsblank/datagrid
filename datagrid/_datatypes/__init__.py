@@ -11,4 +11,4 @@
 #    All rights reserved                             #
 ######################################################
 
-from .datagrid import DataGrid  # noqa
+from .datagrid import _DataGrid  # noqa

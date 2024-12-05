@@ -30,7 +30,7 @@ import PIL.Image
 import PIL.ImageDraw
 import streamlit as st
 
-from ..datatypes.utils import (
+from .._datatypes.utils import (
     generate_thumbnail,
     get_color,
     image_to_fp,
