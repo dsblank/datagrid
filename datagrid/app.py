@@ -10,7 +10,6 @@ from .datatypes.utils import (
     get_contrasting_color,
     generate_thumbnail,
     generate_image,
-    download_data,
     image_to_fp,
     draw_annotations_on_image,
     experiment_get_asset,

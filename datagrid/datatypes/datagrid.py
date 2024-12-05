@@ -30,6 +30,8 @@ from ..utils import (
     _in_jupyter_environment,
     _in_kaggle_environment,
 )
+from .base import Asset
+from .serialize import ASSET_TYPE_MAP, DATAGRID_TYPES
 from .utils import (
     RESERVED_NAMES,
     _verify_box,
@@ -68,6 +70,40 @@ def _convert_setting(value, desired_type):
         return float(value)
     else:
         raise Exception("unknown setting type: %r" % desired_type)
+
+
+def _createAssetEncoder(datagrid):
+    """
+    Create and return an JSON encoder that logs
+    assets to the datagrid.
+    """
+
+    class AssetEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, Asset):
+                return obj.log_and_serialize(datagrid)
+
+            return json.JSONEncoder.default(self, obj)
+
+    return AssetEncoder
+
+
+def _convert_with_assets_to_json(metadata, datagrid):
+    """
+    Go through metadata, convert to JSON, logging
+    any assets along the way.
+
+    Args:
+        metadata: a JSON-encodable item, with assets
+        datagrid: a datagrid with _log() method.
+
+    Returns:
+        a JSON-encoded string with asset objects replaced with assetIds
+
+    Side-effects:
+        logs assets to database
+    """
+    return json.dumps(metadata, cls=_createAssetEncoder(datagrid))
 
 
 class DataGrid:
@@ -139,7 +175,7 @@ class DataGrid:
         Examples:
 
         ```python
-        >>> from datagrid import DataGrid, Image
+        >>> from kangas import DataGrid, Image
         >>> import glob
         >>> dg = DataGrid(name="Images", columns=["Image", "Score"])
         >>> for filename in glob.glob("*.jpg"):
@@ -148,7 +184,7 @@ class DataGrid:
         >>> dg.show()
         ```
         """
-        self.converters = {}
+        self.converters = converters if converters else self._get_default_converters()
         self.datetime_format = datetime_format
         self.heuristics = heuristics
         self.about = ""
@@ -250,6 +286,9 @@ class DataGrid:
 
         return "<table>%s</table>" % output
 
+    def _get_default_converters(self):
+        return {}  # {"row": huggingface_annotations}
+
     def set_columns(self, columns):
         """
         Set the columns. `columns` is either a list of column names, or a
@@ -322,6 +361,143 @@ class DataGrid:
             for row in self._data:
                 yield [row[column_name] for column_name in self.get_columns()]
 
+    def to_csv(
+        self,
+        filename,
+        sep=",",
+        header=True,
+        quotechar='"',
+        encoding="utf8",
+        converters=None,
+    ):
+        """
+        Save a DataGrid as a Comma Separated Values (CSV) file.
+
+        Args:
+            filename: (str) the file to save the CSV data to
+            sep: (str) separator to use in CSV; default is ","
+            header: (bool) if True, write out the header; default is True
+            quotechar: (str) the character to use to surround text; default is '"'
+            encoding: (str) the encoding to use in the saved file; default is "utf8"
+            converters: (optional, dict) dictionary of functions to convert items
+                into values. Keys are str (to match column name)
+
+        Example:
+        ```python
+        >>> dg.to_csv()
+        ```
+        """
+        print("Saving DataGrid to %r..." % filename)
+        with open(filename, "w", encoding=encoding, newline="") as fp:
+            writer = csv.writer(fp, delimiter=sep, quotechar=quotechar)
+            if header:
+                writer.writerow(self.get_columns())
+            for row in ProgressBar(self):
+                writer.writerow(
+                    [
+                        apply_converters(value, colname, converters)
+                        for value, colname in zip(row, self.get_columns())
+                    ]
+                )
+
+    def to_dataframe(self):
+        """
+        Convert a DataGrid into a pandas dataframe.
+
+        Example:
+        ```python
+        >>> df = dg.to_dataframe()
+        ```
+        """
+        try:
+            import pandas
+        except ImportError:
+            raise Exception("DataGrid.to_dataframe() requires pandas")
+
+        print("Creating DataFrame...")
+        data = self.to_dicts()
+        return pandas.DataFrame(data=data, columns=self.get_columns())
+
+    def to_dicts(self, column_names=None, format_map=None):
+        """
+        Iterate over data, returning dicts.
+
+        Args:
+            column_names: (optional, list of str) only return the given
+                column names
+            format_map: (optional, dict) dictionary of column type to
+                function that takes a value, and returns a new value.
+
+        ```python
+        >>> dg = DataGrid(columns=["column 1", "column 2"])
+        >>> dg.append([1, "one"])
+        >>> dg.append([2, "two"])
+        >>> dg.to_dicts()
+        [
+         {"column 1": value1_1, "column 2": value1_2, ...},
+         {"column 1": value2_1, "column 2": value2_2, ...},
+        ]
+        >>> dg.to_dicts("column 2")
+        [
+         {"column two": value1_2, ...},
+         {"column two": value2_2, ...},
+        ]
+        ```
+        """
+        if isinstance(column_names, str):
+            column_names = [column_names]
+        column_names = column_names if column_names else self.get_columns()
+        if self._on_disk:
+            sql = "SELECT * FROM datagrid;"
+            schema = self.get_schema()
+            column_name_map = {
+                schema[column_name]["field_name"]: column_name for column_name in schema
+            }
+            # Make our own connection to use row_factory:
+            if os.path.isfile(self.filename):
+                conn = sqlite3.connect(str(self.filename))
+            else:
+                raise Exception("file not found: %r" % self.filename)
+
+            conn.row_factory = make_dict_factory(column_name_map)
+
+            cursor = conn.cursor()
+            results = cursor.execute(sql)
+            for row in results:
+                yield {
+                    column_name: self._value_to_asset(row, column_name, format_map)
+                    for column_name in column_names
+                }
+            conn.row_factory = None
+
+        else:
+            for row in self._data:
+                yield {column_name: row[column_name] for column_name in column_names}
+
+    def _raw_value_to_asset(self, value):
+        """
+        Takes an asset from query_sql and return unserialized asset
+        """
+        if isinstance(value, dict):
+            if "assetType" in value and "assetId" in value:
+                row = {"value": value["assetId"]}
+                return ASSET_TYPE_MAP[value["assetType"]].unserialize(
+                    self, row, "value"
+                )
+
+        return value
+
+    def _value_to_asset(self, row, column_name, format_map=None):
+        # if this is an asset column, return Object, with asset_id, asset_data,
+        # and asset_metadata
+        if column_name in self._columns:
+            dg_type = self._columns[column_name]
+            value = DATAGRID_TYPES[dg_type]["unserialize"](self, row, column_name)
+            if format_map is not None and dg_type in format_map:
+                value = format_map[dg_type](value)
+            return value
+        return row[column_name]
+
     def __getitem__(self, item):
         """
         Get either a row or a column from the DataGrid.
@@ -368,7 +544,7 @@ class DataGrid:
                 self.conn.row_factory = None
                 if row:
                     return [
-                        row[column_name]
+                        self._value_to_asset(row, column_name)
                         for column_name in self.get_columns()
                     ]
                 else:
@@ -379,7 +555,7 @@ class DataGrid:
                 # FIXME: make lazy by using yeild:
                 rows = results.fetchall()
                 self.conn.row_factory = None
-                return [row[column_name] for row in rows]
+                return [self._value_to_asset(row, column_name) for row in rows]
         else:
             if row_index is not None:
                 if row_index < len(self._data):
@@ -565,14 +741,14 @@ class DataGrid:
         Note: the file or URL may end with ".zip", ".tgz", ".gz", or ".tar"
             extension. If so, it will be downloaded and unarchived. The JSON
             file is assumed to be in the archive with the same name as the
-            file/URL. If it is not, then please use the datagrid.download()
+            file/URL. If it is not, then please use the kangas.download()
             function to download, and then read from the downloaded file.
 
         [1] - https://jsonlines.org/
 
         Example:
         ```python
-        >>> from datagrid import DataGrid
+        >>> from kangas import DataGrid
         >>> dg = DataGrid.read_json("json_line_file.json")
         >>> dg = DataGrid.read_json("https://instances.social/instances.json")
         >>> dg = DataGrid.read_json("https://company.com/data.json.zip")
@@ -1044,6 +1220,267 @@ class DataGrid:
                 new_data[1].append(None)
         self.append_columns([new_column, new_column_iou], new_data)
 
+    def remove_unused_assets(self):
+        """
+        Remove any assets that don't have a reference to them
+        from the datagrid table.
+        """
+        # First, get all columns that are -ASSET
+        schema = self.get_schema()
+        columns = [
+            column["field_name"]
+            for column in schema.values()
+            if column["type"].endswith("-ASSET")
+        ]
+        if len(columns) == 0:
+            return
+        # Delete any asset that is not used
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """DELETE FROM assets WHERE asset_id NOT IN (SELECT asset_id FROM datagrid WHERE {where});""".format(
+                where=" OR ".join(
+                    ["%s = assets.asset_id" % column for column in columns]
+                )
+            )
+        )
+        result = cursor.rowcount
+        self.conn.commit()
+        if result > 0:
+            print("Deleted %s unused assets" % result)
+            self._compute_stats()
+
+    def remove_select(
+        self,
+        where,
+        computed_columns=None,
+        limit=None,
+        offset=0,
+        debug=False,
+    ):
+        """
+        Remove items by filter
+
+        Args:
+            where: (optional, str) a Python expression where column names are
+                written as {"Column Name"}.
+            limit: (optional, int) select at most this value
+            offset: (optional, int) start selection at this offset
+            computed_columns: (optional, dict) a dictionary with the keys
+                being the column name, and value is a string describing the
+                expression of the column. Uses same syntax and semantics
+                as the filter query expressions.
+        """
+        results = self.select(
+            where=where,
+            to_dicts=True,
+            computed_columns=computed_columns,
+            limit=limit,
+            offset=offset,
+            debug=debug,
+            select_columns=["row-id"],
+        )
+        row_ids = [row["row-id"] for row in results]
+        self.remove_rows(*row_ids)
+
+    def remove_rows(self, *row_ids):
+        """
+        Remove specific rows, and any associated assets.
+        """
+        if self._on_disk:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "DELETE from datagrid where column_0 in ({row_ids})".format(
+                    row_ids=",".join(["'%s'" % x for x in row_ids])
+                )
+            )
+            result = cursor.rowcount
+            self.conn.commit()
+            if result > 0:
+                print("Deleted %s items" % result)
+                # renumber row_ids:
+                self.conn.execute("""VACUUM""")
+                self.conn.execute("""UPDATE datagrid SET column_0 = rowid""")
+                self.conn.commit()
+                self.remove_unused_assets()
+        else:
+            raise Exception("unable to delete rows from in-memory data")
+
+    def remove_columns(self, *column_names):
+        """
+        Delete columns from the saved DataGrid.
+
+        Args:
+            column_names: list of column names to delete
+
+        Example:
+        ```python
+        >>> dg = kg.DataGrid(columns=["a", "b"])
+        >>> dg.save()
+        >>> dg.remove_columns("a")
+        ```
+        """
+        if self._on_disk:
+            schema = self.get_schema()
+            columns = [column_name for column_name in column_names]
+            columns += [column_name + "--metadata" for column_name in column_names]
+            cursor = self.conn.cursor()
+            for column_name in columns:
+                if column_name in schema:
+                    # 1. Get column field name:
+                    column_field = schema[column_name]["field_name"]
+
+                    # If the column we are deleting is an asset type
+                    # then we need to delete the asset:
+                    if schema[column_name]["type"].endswith("--ASSET"):
+                        # Get all of the asset_ids to delete from assets
+                        asset_ids = [
+                            x[0]
+                            for x in cursor.execute(
+                                "SELECT {column_field} from datagrid;"
+                            ).fetchall()
+                        ]
+                        cursor.execute(
+                            "DELETE from assets where asset_id in ({asset_ids})".format(
+                                asset_ids=",".join(["'%s'" % x for x in asset_ids])
+                            )
+                        )
+                        self.conn.commit()
+
+                    # 2. Remove column
+                    del self._columns[column_name]
+
+                    # 4. Update and clear cache:
+                    delete_column_sql = (
+                        """ALTER TABLE datagrid DROP COLUMN {column_field};""".format(
+                            column_field=column_field,
+                        )
+                    )
+                    cursor.execute(delete_column_sql)
+                    self.conn.commit()
+            # 3. re-create the schema, drops all metadata/stats
+            self._create_schema(self._columns)
+            self._compute_stats()
+        else:
+            raise Exception("unable to delete column from in-memory data")
+
+    def append_column(self, column_name, rows, verify=True):
+        """
+        Append a column to the DataGrid.
+
+        Args:
+            column_name: column name to append
+            rows: list of values
+            verify: (optional, bool) if True, verify the data
+
+        NOTE: `rows` is a list of values, one for each row.
+
+        Example:
+        ```python
+        >>> dg.append_column("New Column Name", ["row1", "row2", "row3", "row4"])
+        ```
+        """
+        ## FIXME: make sure not repeating column name
+        if self._on_disk:
+            if isinstance(rows, str):
+                expr = rows
+                rows = [
+                    row[column_name]
+                    for row in self.select(
+                        computed_columns={column_name: expr}, to_dicts=True
+                    )
+                ]
+
+            if self.nrows != len(rows):
+                raise Exception("invalid number of rows to append")
+
+            self._append_col_to_db(column_name, rows, verify)
+
+        else:
+            if isinstance(rows, str):
+                raise Exception(
+                    "can't append a computed column to an in-memory DataGrid"
+                )
+
+            if len(self._data) != len(rows):
+                raise Exception("invalid number of rows to append")
+
+            # add to self._columns
+            self._columns.update(
+                {self._verify_column(column_name, len(self._columns) + 1): None}
+            )
+
+            # append to data
+            for r, row in enumerate(rows):
+                row_dict = {column_name: row}
+                if verify:
+                    # verify each and every row
+                    self._convert_values_row_dict(row_dict)
+                    column_types = self._verify_row_dict(row_dict, [column_name])
+                    self._check_column_types(column_types)
+
+                self._data[r].update(row_dict)
+
+    def append_columns(self, columns, rows=None, verify=True):
+        """
+        Append columns to the DataGrid.
+
+        Args:
+            columns: list of column names to append if rows is given
+               or dictionary of column names as keys, and column
+               rows as values.
+            rows: (optional, list) list of list of values per row
+            verify: (optional, bool) if True, verify the data
+
+        Example:
+        ```python
+        >>> dg = kg.DataGrid(columns=["a", "b"])
+        >>> dg.append([11, 12])
+        >>> dg.append([21, 22])
+        >>> dg.append_columns(
+        ...     ["New Column 1", "New Column 2"],
+        ...     [
+        ...      ["row1 col1",
+        ...       "row2 col1"],
+        ...      ["row1 col2",
+        ...       "row2 col2"],
+        ...     ])
+        >>> dg.append_columns(
+        ...     {"New Column 3": ["row1 col3",
+        ...                       "row2 col3"],
+        ...      "New Column 4": ["row1 col4",
+        ...                       "row2 col4"],
+        ...     })
+        >>> dg.info()
+        row-id   a   b  New Column 1  New Column 2  New Column 3  New Column 4
+             1  11  12     row1 col1     row1 col2     row1 col3     row1 col4
+             2  21  22     row2 col1     row2 col2     row2 col3     row2 col4
+        [2 rows x 6 columns]
+        ```
+        """
+        if rows is None:
+            for column_name, column_rows in columns.items():
+                self.append_column(column_name, column_rows, verify)
+        else:
+            for column_name, column_rows in zip(columns, rows):
+                self.append_column(column_name, column_rows, verify)
+
+    def pop(self, index):
+        """
+        Pop a row by index from an in-memory DataGrid.
+
+        Args:
+            index: (int) position (zero-based) of row to remove
+
+        Example:
+        ```python
+        >>> row = dg.pop(0)
+        ```
+        """
+        if self._on_disk:
+            raise Exception("Popping from a DataGrid on disk is not currently possible")
+
+        return self._data.pop(index)
+
     def append(self, row):
         """
         Append this row onto the datagrid data.
@@ -1059,6 +1496,19 @@ class DataGrid:
             )
 
         self.extend([row])
+
+    def get_asset_ids(self):
+        """
+        Get all of the asset IDs from the DataGrid.
+
+        Returns a list of asset IDs.
+        """
+        if self._on_disk:
+            sql = "SELECT asset_id FROM assets;"
+            cursor = self.conn.cursor()
+            return [row[0] for row in cursor.execute(sql).fetchall()]
+        else:
+            raise Exception("an in-memory DataGrid doesn't have assets; save first")
 
     def extend(self, rows, verify=True):
         """
@@ -2018,6 +2468,36 @@ class DataGrid:
             cursor.execute(insert_metadata_sql, row)
         self.conn.commit()
 
+    def _log_and_serialize_data(self):
+        """
+        Log and serialize each row.
+        """
+        return [
+            {
+                column_name: self._log_and_serialize_item(
+                    value, column_name, row_id=index + 1
+                )
+                for index, (column_name, value) in enumerate(row_dict.items())
+            }
+            for row_dict in self._data
+        ]
+
+    def _log_and_serialize_item(self, item, column_name, row_id=None):
+        """
+        Log and serialize each column of data.
+        """
+        if is_null(item):
+            return None
+
+        ctype = self._get_type(item)
+
+        if ctype in DATAGRID_TYPES:
+            return DATAGRID_TYPES[ctype]["serialize"](self, item, row_id)
+        else:
+            raise ValueError(
+                "unable to serialize %r in column %r" % (item, column_name)
+            )
+
     def get_metadata(self):
         from ..server.queries import get_metadata
 
@@ -2026,3 +2506,139 @@ class DataGrid:
         else:
             return None
 
+    def _log(self, asset_id, asset_type, asset_data, metadata, row_id):
+        """
+        Log the asset. As a side-effect, possibly create a thumbnail.
+
+        NOTE: asset_thumbnail is:
+            * bytes, if there is one
+            * None, if one hasn't been made yet
+            * "", if you should use original
+        """
+        if asset_id not in self._asset_id_cache:
+            # Possible recusion, just on metadata:
+            json_string = _convert_with_assets_to_json(metadata, self)
+            # Log to database
+            # If we should make a thumbnail, do it
+            if self.create_thumbnails and hasattr(ASSET_TYPE_MAP[asset_type.lower()], "generate_thumbnail"):
+                asset_thumbnail = ASSET_TYPE_MAP[asset_type.lower()].generate_thumbnail(
+                    asset_data, metadata
+                )
+            else:
+                asset_thumbnail = None  # means one hasn't been created yet
+            self.cursor.execute(
+                "INSERT INTO assets (asset_id, asset_type, asset_data, asset_metadata, asset_thumbnail) VALUES (?, ?, ?, ?, ?);",
+                [asset_id, asset_type, asset_data, json_string, asset_thumbnail],
+            )
+            self._asset_id_cache.add(asset_id)
+
+    def upgrade(self):
+        """
+        Upgrade to latest version of datagrid.
+        """
+        self._upgrade_table("asset_id", "asset_metadata", "assets")
+        schema = self.get_schema()
+        for column_name in schema:
+            if (
+                column_name.endswith("--metadata")
+                and schema[column_name]["type"] == "JSON"
+            ):
+                self._upgrade_table(
+                    "column_0", schema[column_name]["field_name"], "datagrid"
+                )
+        self._compute_stats()
+
+    def _upgrade_table(self, column_id_name, column_metadata_name, table_name):
+        """
+        Upgrade to latest version of datagrid.
+        """
+        env = {
+            "column_id_name": column_id_name,
+            "column_metadata_name": column_metadata_name,
+            "table_name": table_name,
+        }
+        sql = (
+            "SELECT {column_id_name}, {column_metadata_name} FROM {table_name};".format(
+                **env
+            )
+        )
+        sql_update = "UPDATE {table_name} SET {column_metadata_name} = ? where {column_id_name} = ?".format(
+            **env
+        )
+
+        cursor = self.conn.cursor()
+        rows = list(cursor.execute(sql).fetchall())
+
+        count = 0
+        for row in ProgressBar(rows):
+            asset_id, asset_json_string = row
+            try:
+                asset_json = json.loads(asset_json_string)
+            except Exception:
+                asset_json = {}
+
+            # old style: "overlays": [{"label": "motorcycle", "type": "boxes",
+            # "data": [[[359.17, 146.17], [471.62, 359.74]]], "score": 0.9247971465564591},
+            # {"label": "person", "type": "regions", "data": [[352.55, 146.82, 35...]]}, ...]
+
+            # new style: {"annotations": [
+            #   {"name": str_layername,
+            #    "data": [{"label": str, "boxes": [], "points": [], "score": float, "id": str}, ...]}]}
+
+            if "overlays" in asset_json:
+                data = []
+                asset_json["annotations"] = [
+                    {
+                        "name": "(uncategorized)",
+                        "data": data,
+                    }
+                ]
+                for overlay in asset_json["overlays"]:
+                    if overlay["type"] == "boxes":
+                        data.append(
+                            {
+                                "label": overlay["label"],
+                                "boxes": [_verify_box(box) for box in overlay["data"]],
+                                "points": None,
+                                "id": None,
+                                "score": overlay["score"],
+                                "metadata": (
+                                    overlay["metadata"]
+                                    if "metadata" in overlay
+                                    else None
+                                ),
+                            }
+                        )
+                    if overlay["type"] == "regions":
+                        data.append(
+                            {
+                                "label": overlay["label"],
+                                "points": overlay["data"],
+                                "boxes": None,
+                                "id": None,
+                                "score": overlay["score"],
+                                "metadata": (
+                                    overlay["metadata"]
+                                    if "metadata" in overlay
+                                    else None
+                                ),
+                            }
+                        )
+                del asset_json["overlays"]
+
+            elif "annotations" in asset_json:
+                for annotation in asset_json["annotations"]:
+                    if isinstance(annotation, dict) and "data" in annotation:
+                        for data in annotation["data"]:
+                            if "regions" in data:
+                                data["points"] = data["regions"]
+                                data["id"] = None
+                                del data["regions"]
+
+            asset_json_new = json.dumps(asset_json)
+            if asset_json_new != asset_json_string:
+                cursor.execute(sql_update, [asset_json_new, asset_id])
+                count += 1
+
+        self.conn.commit()
+        print("Updated %s assets" % count)
