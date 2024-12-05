@@ -68,7 +68,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
     for c, (column_name, value) in enumerate(row.items()):
         if group_by:
             if isinstance(value, dict):
-                if value["type"] == "integer-group":
+                if value["type"] in ["integer-group", "text-group"]:
                     results = select_category(
                         DATAGRID,
                         group_by,
@@ -202,7 +202,9 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
             elif schema[column_name]["type"] == "FLOAT":
                 pass
             elif schema[column_name]["type"] == "BOOLEAN":
-                value = format_text("True" if value else "False")
+                value = (
+                    f"""<input type="checkbox" disabled {"checked" if value else ""}>"""
+                )
             elif schema[column_name]["type"] == "JSON":
                 pass
             elif schema[column_name]["type"] == "ROW_ID":
@@ -329,8 +331,44 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
                 "Column %s, where %s == %r%s"
                 % (value["columnName"], group_by, value["columnValue"], where_str)
             )
-            # FIXME:
-            st.json(value)
+            results = select_category(
+                value["dgid"],
+                group_by,
+                where=value["whereExpr"],
+                column_name=value["columnName"],
+                column_value=value["columnValue"],
+                where_description=None,
+                computed_columns=None,
+                where_expr=value["whereExpr"],
+            )
+            if results["type"] == "category":
+                layout = {
+                    "showlegend": False,
+                    "xaxis": {
+                        "visible": True,
+                        "showticklabels": True,
+                    },
+                    "yaxis": {
+                        "visible": True,
+                        "showticklabels": True,
+                        "type": "category",
+                    },
+                }
+
+                fig = go.Figure(
+                    data=[
+                        go.Bar(
+                            y=list(results["values"].keys()),
+                            x=list(results["values"].values()),
+                            marker_color=[
+                                get_color(v) for v in results["values"].keys()
+                            ],
+                            orientation="h",
+                        )
+                    ]
+                )
+                fig.update_layout(**layout)
+                st.plotly_chart(fig)
         else:
             st.title("Text data")
             st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
