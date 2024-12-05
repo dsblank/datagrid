@@ -58,7 +58,7 @@ def build_header_row(column_names, width):
     return retval
 
 
-def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
+def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
     retval = "<tr>"
     if group_by:
         max_height = 116
@@ -197,9 +197,12 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
             elif schema[column_name]["type"] == "TEXT":
                 value = format_text(value)
             elif schema[column_name]["type"] == "INTEGER":
-                pass
+                if config["integer_separator"]:
+                    value = '{:,}'.format(value)
             elif schema[column_name]["type"] == "FLOAT":
-                pass
+                if config["decimal_precision"] is not None:
+                    expr = f"""%.0{config["decimal_precision"]}f"""
+                    value = expr % value
             elif schema[column_name]["type"] == "BOOLEAN":
                 value = (
                     f"""<input type="checkbox" disabled {"checked" if value else ""}>"""
@@ -223,12 +226,12 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment):
 
 
 @st.spinner("Building datagrid...")
-def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id):
+def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, config):
     width = 300 if group_by else 150
     retval = f"""<table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys(), width)
     for r, row in enumerate(data):
-        retval += build_row(DATAGRID, group_by, where, r, row, schema, experiment)
+        retval += build_row(DATAGRID, group_by, where, r, row, schema, experiment, config)
     retval += "</table>"
     return retval, len(data[0].keys()) * width
 
@@ -292,12 +295,20 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
         )
         columns = st.columns([1, 3])
 
-        labels = columns[0].pills(
-            "Labels:",
-            sorted(value["assetData"].get("labels", [])),
-            selection_mode="multi",
-            default=value["assetData"].get("labels"),
-        )
+        smooth = columns[0].checkbox("Smoothing", value=True)
+        grayscale = columns[0].checkbox("Grayscale", value=False)
+        labels_list = sorted(value["assetData"].get("labels", []))
+        if labels_list:
+            labels = columns[0].pills(
+                "**Labels**:",
+                labels_list,
+                selection_mode="multi",
+                default=labels_list,
+            )
+
+        if "metadata" in value["assetData"] and value["assetData"]["metadata"]:
+            columns[0].markdown("**Image metadata**:")
+            columns[0].json(value["assetData"]["metadata"])
 
         asset_data = experiment_get_asset(
             experiment,
@@ -315,7 +326,15 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
                 includes=labels,
             )
 
-        columns[1].image(image)
+        #columns[1].image(image, use_container_width=True)
+        result = image_to_fp(image, "png").read()
+        data = "data:image/png;base64," + base64.b64encode(result).decode(
+            "utf-8"
+        )
+
+        value = f"""<img src="{data}" style="max-width: 100%; width: 500px; image-rendering: {"unset" if smooth else "pixelated"}; filter: {"grayscale(1) drop-shadow(2px 4px 6px black)" if grayscale else "drop-shadow(2px 4px 6px black)"} "></img>"""
+        columns[1].html(value)
+        #columns[1].image(image, use_container_width=True)
 
     if st.button("Done", type="primary"):
         st.session_state["datagrid"]["table_id"] += 1
