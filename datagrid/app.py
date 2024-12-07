@@ -79,12 +79,18 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                         where_expr=where,
                     )
                     if results["type"] == "category":
-                        # st.write(results)
+                        xy = sorted(
+                            [(x, y) for x,y in results["values"].items()],
+                            key=lambda item: item[0]
+                        )
+                        y = [v[0] for v in xy]
+                        x = [v[1] for v in xy]
+
                         trace = {
-                            "y": list(results["values"].keys()),
-                            "x": list(results["values"].values()),
+                            "y": y,
+                            "x": x,
                             "marker": {
-                                "color": [get_color(v) for v in results["values"]]
+                                "color": [get_color(str(v)) for v in y]
                             },
                         }
                         image_data = generate_chart_image(
@@ -409,25 +415,52 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
                 "Column %s, where %s == %r%s"
                 % (value["columnName"], group_by, value["columnValue"], where_str)
             )
-            conn = get_database_connection(value["dgid"])
-            cur = conn.cursor()
-            metadata = get_metadata(conn)
-            results = select_group_by_rows(
+            results = select_category(
+                value["dgid"],
+                group_by,
+                where=value["whereExpr"],
                 column_name=value["columnName"],
                 column_value=value["columnValue"],
-                group_by=group_by,
-                where_expr=value["whereExpr"],
-                metadata=metadata,
-                cur=cur,
+                where_description=None,
                 computed_columns=None,
+                where_expr=value["whereExpr"],
             )
-            all_results = []
-            for tups in results:
-                all_results.extend([int(v) for v in tups[0].split(",")])
-            st.write(
-                f"All {len(all_results)} matching values from column **{value['columnName']}**"
-            )
-            st.write(sorted(all_results))
+            if results["type"] == "category":
+                layout = {
+                    "showlegend": False,
+                    "xaxis": {
+                        "visible": True,
+                        "showticklabels": True,
+                    },
+                    "yaxis": {
+                        "visible": True,
+                        "showticklabels": True,
+                        "type": "category",
+                    },
+                }
+                print(results["values"])
+                xy = sorted(
+                    [(x, y) for x,y in results["values"].items()],
+                    key=lambda item: item[0]
+                )
+                y = [v[0] for v in xy]
+                x = [v[1] for v in xy]
+                fig = go.Figure(
+                    data=[
+                        go.Bar(
+                            y=y,
+                            x=x,
+                            marker_color=[
+                                get_color(str(v)) for v in y
+                            ],
+                            orientation="h",
+                        )
+                    ]
+                )
+                fig.update_layout(**layout)
+                st.plotly_chart(fig)
+            elif results["type"] == "verbatim":
+                value = results["value"]
         else:
             st.title("Integer data")
             st.write(value)
