@@ -379,14 +379,20 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
                         "type": "category",
                     },
                 }
+                xy = sorted(
+                    [(x, y) for x,y in results["values"].items()],
+                    key=lambda item: item[0]
+                )
+                y = [v[0] for v in xy]
+                x = [v[1] for v in xy]
 
                 fig = go.Figure(
                     data=[
                         go.Bar(
-                            y=list(results["values"].keys()),
-                            x=list(results["values"].values()),
+                            y=y,
+                            x=x,
                             marker_color=[
-                                get_color(v) for v in results["values"].keys()
+                                get_color(v) for v in y
                             ],
                             orientation="h",
                         )
