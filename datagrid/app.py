@@ -26,7 +26,6 @@ from .server.queries import (
     get_completions,
     verify_where,
     get_database_connection,
-    get_metadata,
     select_group_by_rows,
 )
 
@@ -265,6 +264,10 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
             distinct=True,
         )
         data = [json.loads(item.replace("&comma;", ",")) for item in results["values"]]
+        if len(data) < 20:
+            st.write(f"Loading Total {len(data)} images in group; click image to open in tab")
+        else:
+            st.write("Loading first 20 images in group; click image to open in tab")
         images = ""
         for i, value in enumerate(data):
             asset_data = experiment_get_asset(
@@ -288,10 +291,6 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
                 % (url, image_data)
             )
 
-        if len(data) < 20:
-            st.write(f"Total {len(data)} images in group; click image to open in tab")
-        else:
-            st.write("First 20 images in group; click image to open in tab")
         st.markdown(images, unsafe_allow_html=True)
 
     else:
@@ -446,7 +445,6 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
                         "type": "category",
                     },
                 }
-                print(results["values"])
                 xy = sorted(
                     [(x, y) for x,y in results["values"].items()],
                     key=lambda item: item[0]

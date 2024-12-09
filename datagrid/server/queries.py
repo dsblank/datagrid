@@ -738,6 +738,30 @@ def plural(count, noun):
 
     return "%s %s" % (count, nouns)
 
+def category(cur, metadata, counts, column):
+    """
+    Given counts = {"Animal": 37, "Plant": 12}
+    add in those categories not listed
+    """
+    if column in metadata:
+        if metadata[column]["type"] == "INTEGER":
+            minimum = int(metadata[column]["minimum"])
+            maximum = int(metadata[column]["maximum"])
+            if maximum - minimum <= MAX_CATEGORIES:
+                zeros = {str(key): 0 for key in range(minimum, maximum + 1, 1)}
+                zeros.update(counts)
+                return zeros
+        elif metadata[column]["type"] == "TEXT":
+            field_name = metadata[column]["field_name"]
+            cur.execute(f"SELECT DISTINCT {field_name} from datagrid;")
+            all_values = [text[0] for text in cur.fetchall()]
+            if len(all_values) <= MAX_CATEGORIES:
+                zeros = {key: 0 for key in all_values}
+                zeros.update(counts)
+                return zeros
+
+    return counts
+
 
 def histogram(cur, metadata, values, column):
     statistics = {
@@ -1258,6 +1282,7 @@ def select_category(
                     key: value
                     for (key, value) in sorted(counts.items(), key=lambda item: item[1])
                 }
+                counts = category(cur, metadata, counts, column_name)
                 # values: {"Animal": 37, "Plant": 12}
                 results_json = {
                     "type": "category",
@@ -2759,10 +2784,11 @@ def generate_chart_image(chart_type, data, width, height, x_range=None, y_range=
                 x1, y1 = (width * x / max_x), ((position + 1) * spacing - margin)
                 x0, x1 = min(x0, x1), max(x0, x1)
                 y0, y1 = min(y0, y1), max(y0, y1)
-                drawing.rectangle(
-                    [(x0, y0), (x1, y1)],
-                    fill=color,
-                )
+                if x0 != x1:
+                    drawing.rectangle(
+                        [(x0, y0), (x1, y1)],
+                        fill=color,
+                    )
 
         elif chart_type == "histogram":
             if "y" not in trace or len(trace["y"]) == 0:
