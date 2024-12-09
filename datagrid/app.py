@@ -64,6 +64,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
     else:
         max_height = 55
     for c, (column_name, value) in enumerate(row.items()):
+        linkable = True
         if group_by:
             if isinstance(value, dict):
                 if value["type"] in ["integer-group", "text-group"]:
@@ -102,6 +103,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                         )
                     elif results["type"] == "verbatim":
                         value = results["value"]
+                        linkable = False
 
                 elif value["type"] == "row-group":
                     # TODO
@@ -139,6 +141,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                         )
                     elif results["type"] == "verbatim":
                         value = results["value"]
+                        linkable = False
 
                 elif value["type"] == "asset-group":
                     image_data = select_asset_group_thumbnail(
@@ -172,6 +175,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                     raise Exception("Unknown group type: %r" % value["type"])
             else:
                 value = format_text(value)
+                linkable = False
         else:
             # Non-grouped by row:
             # "INTEGER", "FLOAT", "BOOLEAN", "TEXT", "JSON"
@@ -201,17 +205,21 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                 )
             elif schema[column_name]["type"] == "TEXT":
                 value = format_text(value)
+                linkable = False
             elif schema[column_name]["type"] == "INTEGER":
                 if config["integer_separator"]:
                     value = '{:,}'.format(value)
+                linkable = False
             elif schema[column_name]["type"] == "FLOAT":
                 if config["decimal_precision"] is not None:
                     expr = f"""%.0{config["decimal_precision"]}f"""
                     value = expr % value
+                linkable = False
             elif schema[column_name]["type"] == "BOOLEAN":
                 value = (
                     f"""<input type="checkbox" disabled {"checked" if value else ""}>"""
                 )
+                linkable = False
             elif schema[column_name]["type"] == "JSON":
                 pass
             elif schema[column_name]["type"] == "ROW_ID":
@@ -219,7 +227,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
             else:
                 value = "Unsupported row render type: %s" % schema[column_name]["type"]
 
-        if schema[column_name]["type"] not in ["ROW_ID"]:
+        if schema[column_name]["type"] not in ["ROW_ID"] and linkable:
             value = build_link(c, r, value)
         retval += (
             """<td style="border: 1px solid; border-collapse: collapse; text-align: center; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: %spx;">%s</td>"""
@@ -230,7 +238,6 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
     return retval
 
 
-@st.spinner("Building datagrid...")
 def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, config):
     width = 300 if group_by else 150
     retval = f"""<table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
