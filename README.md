@@ -10,20 +10,31 @@ pip install datagrid
 
 ## Example
 
+The following demo program will log 100 random images, scores, and categories:
+
 ```python
 from comet_ml import start
 from datagrid import DataGrid, Image
+
 import random
 from PIL import Image as PImage
 import requests
 
 experiment = start(project_name="datagrids")
 
-dg = DataGrid(columns=["Image", "Score"])
+categories = ["sunset", "landscape", "water", "tree", "city"]
+
+dg = DataGrid(
+    columns=["Image", "Score", "Category"],
+    name="Demo"
+)
 url = "https://picsum.photos/200/300"
 for i in range(100):
     im = PImage.open(requests.get(url, stream=True).raw)
-    dg.append([Image(im), random.random()])
+    category = random.choice(categories)
+    score = random.random()
+    image = Image(im, metadata={"category": category, "score": score})
+    dg.append([image, score, category])
 
 dg.log(experiment)
 experiment.end()
@@ -31,6 +42,6 @@ experiment.end()
 
 ## Visualization
 
-Log into comet.com to see results.
+![image](https://github.com/user-attachments/assets/a2a168cd-8e82-4418-b793-58e76bc5ab63)
 
-![image](https://github.com/user-attachments/assets/8ef86f1e-2a34-4b36-82d7-fca2929ebc38)
+Log into <a href="https://comet.com">comet.com</a> to see results.
