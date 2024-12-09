@@ -323,6 +323,8 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
             return_type="binary",
         )
         image = generate_image(asset_data)
+        if grayscale:
+            image = image.convert('L').convert("RGB")
         if "annotations" in value["assetData"]:
             draw_annotations_on_image(
                 image,
@@ -338,7 +340,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
             "utf-8"
         )
 
-        value = f"""<img src="{data}" style="max-width: 100%; width: 500px; image-rendering: {"unset" if smooth else "pixelated"}; filter: {"grayscale(1) drop-shadow(2px 4px 6px black)" if grayscale else "drop-shadow(2px 4px 6px black)"} "></img>"""
+        value = f"""<img src="{data}" style="max-width: 100%; width: 500px; image-rendering: {"unset" if smooth else "pixelated"}; filter: "drop-shadow(2px 4px 6px black)";"></img>"""
         columns[1].html(value)
         #columns[1].image(image, use_container_width=True)
 
