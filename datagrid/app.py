@@ -422,7 +422,7 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
                 fig.update_layout(**layout)
                 event = st.plotly_chart(
                     fig,
-                    on_select=lambda: callback("category_text", value["columnName"]),
+                    on_select=lambda: callback("category_text", value["columnName"], group_by, value["columnValue"]),
                     key="category_text"
                 )
                 if event["selection"]["points"]:
@@ -493,7 +493,7 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback
                 fig.update_layout(**layout)
                 event = st.plotly_chart(
                     fig,
-                    on_select=lambda: callback("category_integer", value["columnName"]),
+                    on_select=lambda: callback("category_integer", value["columnName"], group_by, value["columnValue"]),
                     key="category_integer",
                 )
                 if event["selection"]["points"]:
@@ -547,7 +547,7 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback):
                 event = columns[0].plotly_chart(
                     fig,
                     key="histogram_float",
-                    on_select=lambda: callback("histogram_float", value["columnName"], results["labels"]),
+                    on_select=lambda: callback("histogram_float", value["columnName"], group_by, value["columnValue"], results["labels"]),
                 )
                 if event["selection"]["points"]:
                     st.rerun()
