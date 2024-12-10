@@ -802,9 +802,19 @@ def histogram(cur, metadata, values, column):
         minimum = stats["minimum"]
         maximum = stats["maximum"]
 
-    range = (minimum, maximum)
     LOGGER.debug("Computing histogram...")
-    counts, labels = np.histogram(np_values, bins=HISTOGRAM_BINS, range=range)
+    # If show counts, do this:
+    if True:
+        counts, labels = np.histogram(np_values, bins=HISTOGRAM_BINS, range=(minimum, maximum))
+    else:
+        # if show means do this:
+        # First, compute each bar set:
+        positions = [[] for n in range(HISTOGRAM_BINS)]
+        for value in np_values:
+            position = math.floor(((value - minimum) / maximum) * HISTOGRAM_BINS)
+            positions[position].append(value)
+        counts = np.array([sum(position)/len(position) if position else 0 for position in positions])
+        labels = np.arange(minimum, maximum, (maximum - minimum) / HISTOGRAM_BINS)
 
     # Compute stats for this set:
     if values:

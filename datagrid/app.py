@@ -44,7 +44,6 @@ from .server.queries import (
 
 IMAGE_SIZE = 200
 
-
 def build_link(c, r, value):
     return """<a href="" id="%s,%s" style="color: black;">%s</a>""" % (c, r, value)
 
@@ -369,7 +368,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
 
 
 @st.dialog(" ", width="large")
-def render_text_dialog(BASEURL, group_by, value, schema, experiment):
+def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -377,6 +376,7 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
                 "Column %s, where %s == %r%s"
                 % (value["columnName"], group_by, value["columnValue"], where_str)
             )
+            st.markdown("Use **lasso** or **box** to select items in bars")
             results = select_category(
                 value["dgid"],
                 group_by,
@@ -420,7 +420,13 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
                     ]
                 )
                 fig.update_layout(**layout)
-                st.plotly_chart(fig)
+                event = st.plotly_chart(
+                    fig,
+                    on_select=lambda: callback("category_text", value["columnName"]),
+                    key="category_text"
+                )
+                if event["selection"]["points"]:
+                    st.rerun()
         else:
             st.title("Text data")
             st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
@@ -434,7 +440,7 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment):
 
 
 @st.dialog(" ", width="large")
-def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
+def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -442,6 +448,7 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
                 "Column %s, where %s == %r%s"
                 % (value["columnName"], group_by, value["columnValue"], where_str)
             )
+            st.markdown("Use **lasso** or **box** to select items in bars")
             results = select_category(
                 value["dgid"],
                 group_by,
@@ -484,7 +491,13 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
                     ]
                 )
                 fig.update_layout(**layout)
-                st.plotly_chart(fig)
+                event = st.plotly_chart(
+                    fig,
+                    on_select=lambda: callback("category_integer", value["columnName"]),
+                    key="category_integer",
+                )
+                if event["selection"]["points"]:
+                    st.rerun()
             elif results["type"] == "verbatim":
                 value = results["value"]
         else:
@@ -500,7 +513,7 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment):
 
 
 @st.dialog(" ", width="large")
-def render_float_dialog(BASEURL, group_by, value, schema, experiment):
+def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -508,6 +521,7 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
                 "Column %s, where %s == %r%s"
                 % (value["columnName"], group_by, value["columnValue"], where_str)
             )
+            st.markdown("Use **lasso** or **box** to select items in bars")
             results = select_histogram(
                 value["dgid"],
                 group_by=group_by,
@@ -530,7 +544,14 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment):
                     ]
                 )
                 columns = st.columns([2, 1])
-                columns[0].plotly_chart(fig)
+                event = columns[0].plotly_chart(
+                    fig,
+                    key="histogram_float",
+                    on_select=lambda: callback("histogram_float", value["columnName"], results["labels"]),
+                )
+                if event["selection"]["points"]:
+                    st.rerun()
+
                 columns[1].markdown("## Statistics")
                 columns[1].markdown("**25%%**: %s" % results["statistics"]["25%"])
                 columns[1].markdown("**50%%**: %s" % results["statistics"]["50%"])
