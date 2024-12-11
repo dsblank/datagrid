@@ -16,6 +16,7 @@ import random
 import base64
 import streamlit as st
 import plotly.graph_objects as go
+import pandas as pd
 
 from ._datatypes.utils import (
     get_color,
@@ -43,6 +44,7 @@ from .server.queries import (
 )
 
 IMAGE_SIZE = 200
+
 
 def build_link(c, r, value):
     return """<a href="" id="%s,%s" style="color: black;">%s</a>""" % (c, r, value)
@@ -92,8 +94,8 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                     )
                     if results["type"] == "category":
                         xy = sorted(
-                            [(x, y) for x,y in results["values"].items()],
-                            key=lambda item: item[0]
+                            [(x, y) for x, y in results["values"].items()],
+                            key=lambda item: item[0],
                         )
                         y = [v[0] for v in xy]
                         x = [v[1] for v in xy]
@@ -101,9 +103,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                         trace = {
                             "y": y,
                             "x": x,
-                            "marker": {
-                                "color": [get_color(str(v)) for v in y]
-                            },
+                            "marker": {"color": [get_color(str(v)) for v in y]},
                         }
                         image_data = generate_chart_image(
                             results["type"], [trace], IMAGE_SIZE, IMAGE_SIZE
@@ -220,7 +220,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
                 linkable = False
             elif schema[column_name]["type"] == "INTEGER":
                 if config["integer_separator"]:
-                    value = '{:,}'.format(value)
+                    value = "{:,}".format(value)
                 linkable = False
             elif schema[column_name]["type"] == "FLOAT":
                 if config["decimal_precision"] is not None:
@@ -255,9 +255,71 @@ def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, c
     retval = f"""<table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys(), width)
     for r, row in enumerate(data):
-        retval += build_row(DATAGRID, group_by, where, r, row, schema, experiment, config)
+        retval += build_row(
+            DATAGRID, group_by, where, r, row, schema, experiment, config
+        )
     retval += "</table>"
     return retval, len(data[0].keys()) * width
+
+
+@st.dialog("Download DataGrid")
+def render_download_dialog(BASEURL, dg, schema, where, experiment):
+    use_urls = st.checkbox("Use Comet IDs for assets", value=True)
+    include_metadata = st.checkbox(
+        "Include asset metadata", value=True, disabled=use_urls
+    )
+    include_annotations = st.checkbox(
+        "Include image annotations", value=True, disabled=use_urls
+    )
+    download_type = st.selectbox("Download format:", ["CSV", "JSON"])
+    prepare = st.button("Prepare download")
+    if prepare:
+        data = dg.select(
+            where=where,
+            sort_by="row-id",
+            select_columns=["row-id"] + dg.get_columns(),
+            sort_desc=False,
+            to_dicts=True,
+            limit=None,
+            offset=0,
+        )
+        if use_urls:
+            for row in data:
+                for column_name, column_value in row.items():
+                    column_type = schema[column_name]["type"]
+                    if column_type.endswith("-ASSET"):
+                        row[column_name] = {
+                            "assetId": column_value["assetData"]["asset_id"],
+                            "experimentId": experiment.id,
+                        }
+
+        elif include_metadata is False or include_annotations is False:
+            for row in data:
+                for column_name, column_value in row.items():
+                    column_type = schema[column_name]["type"]
+                    if not include_metadata and column_type.endswith("-ASSET"):
+                        if "metadata" in column_value["assetData"]:
+                            del column_value["assetData"]["metadata"]
+                    if not include_annotations and column_type == "IMAGE-ASSET":
+                        if "annotations" in column_value["assetData"]:
+                            del column_value["assetData"]["annotations"]
+        if download_type == "CSV":
+            df = pd.DataFrame(
+                [list(row.values()) for row in data],
+                columns=["row-id"] + dg.get_columns(),
+            )
+            df.set_index("row-id", inplace=True)
+            formatted_data = df.to_csv().encode("utf-8")
+            filename = "datagrid.csv"
+        elif download_type == "JSON":
+            formatted_data = json.dumps(data)
+            filename = "datagrid.json"
+
+        st.markdown(f"Length of selected data: {len(data)}")
+        if st.download_button(
+            "Download", formatted_data, file_name=filename, type="primary"
+        ):
+            st.rerun()
 
 
 @st.dialog(" ", width="large")
@@ -284,7 +346,9 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
         )
         data = [json.loads(item.replace("&comma;", ",")) for item in results["values"]]
         if len(data) < 20:
-            st.write(f"Loading Total {len(data)} images in group; click image to open in tab")
+            st.write(
+                f"Loading Total {len(data)} images in group; click image to open in tab"
+            )
         else:
             st.write("Loading first 20 images in group; click image to open in tab")
         images = ""
@@ -342,7 +406,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
         )
         image = generate_image(asset_data)
         if grayscale:
-            image = image.convert('L').convert("RGB")
+            image = image.convert("L").convert("RGB")
         if "annotations" in value["assetData"]:
             draw_annotations_on_image(
                 image,
@@ -352,15 +416,13 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
                 includes=labels,
             )
 
-        #columns[1].image(image, use_container_width=True)
+        # columns[1].image(image, use_container_width=True)
         result = image_to_fp(image, "png").read()
-        data = "data:image/png;base64," + base64.b64encode(result).decode(
-            "utf-8"
-        )
+        data = "data:image/png;base64," + base64.b64encode(result).decode("utf-8")
 
         value = f"""<img src="{data}" style="max-width: 100%; width: 500px; image-rendering: {"unset" if smooth else "pixelated"}; filter: "drop-shadow(2px 4px 6px black)";"></img>"""
         columns[1].html(value)
-        #columns[1].image(image, use_container_width=True)
+        # columns[1].image(image, use_container_width=True)
 
     if st.button("Done", type="primary"):
         st.session_state["datagrid"]["table_id"] += 1
@@ -401,8 +463,8 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
                     },
                 }
                 xy = sorted(
-                    [(x, y) for x,y in results["values"].items()],
-                    key=lambda item: item[0]
+                    [(x, y) for x, y in results["values"].items()],
+                    key=lambda item: item[0],
                 )
                 y = [v[0] for v in xy]
                 x = [v[1] for v in xy]
@@ -412,9 +474,7 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
                         go.Bar(
                             y=y,
                             x=x,
-                            marker_color=[
-                                get_color(v) for v in y
-                            ],
+                            marker_color=[get_color(v) for v in y],
                             orientation="h",
                         )
                     ]
@@ -422,8 +482,13 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
                 fig.update_layout(**layout)
                 event = st.plotly_chart(
                     fig,
-                    on_select=lambda: callback("category_text", value["columnName"], group_by, value["columnValue"]),
-                    key="category_text"
+                    on_select=lambda: callback(
+                        "category_text",
+                        value["columnName"],
+                        group_by,
+                        value["columnValue"],
+                    ),
+                    key="category_text",
                 )
                 if event["selection"]["points"]:
                     st.rerun()
@@ -473,8 +538,8 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback
                     },
                 }
                 xy = sorted(
-                    [(x, y) for x,y in results["values"].items()],
-                    key=lambda item: item[0]
+                    [(x, y) for x, y in results["values"].items()],
+                    key=lambda item: item[0],
                 )
                 y = [v[0] for v in xy]
                 x = [v[1] for v in xy]
@@ -483,9 +548,7 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback
                         go.Bar(
                             y=y,
                             x=x,
-                            marker_color=[
-                                get_color(str(v)) for v in y
-                            ],
+                            marker_color=[get_color(str(v)) for v in y],
                             orientation="h",
                         )
                     ]
@@ -493,7 +556,12 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback
                 fig.update_layout(**layout)
                 event = st.plotly_chart(
                     fig,
-                    on_select=lambda: callback("category_integer", value["columnName"], group_by, value["columnValue"]),
+                    on_select=lambda: callback(
+                        "category_integer",
+                        value["columnName"],
+                        group_by,
+                        value["columnValue"],
+                    ),
                     key="category_integer",
                 )
                 if event["selection"]["points"]:
@@ -547,7 +615,13 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback):
                 event = columns[0].plotly_chart(
                     fig,
                     key="histogram_float",
-                    on_select=lambda: callback("histogram_float", value["columnName"], group_by, value["columnValue"], results["labels"]),
+                    on_select=lambda: callback(
+                        "histogram_float",
+                        value["columnName"],
+                        group_by,
+                        value["columnValue"],
+                        results["labels"],
+                    ),
                 )
                 if event["selection"]["points"]:
                     st.rerun()
