@@ -250,15 +250,16 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
     return retval
 
 
+# -webkit-fill-available
 def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, config):
     width = 300 if group_by else 150
-    retval = f"""<table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
+    retval = f"""<div style="display: block; width: -webkit-fill-available; overflow: auto;"><table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys(), width)
     for r, row in enumerate(data):
         retval += build_row(
             DATAGRID, group_by, where, r, row, schema, experiment, config
         )
-    retval += "</table>"
+    retval += "</table></div>"
     return retval, len(data[0].keys()) * width
 
 
