@@ -426,7 +426,7 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
         # columns[1].image(image, use_container_width=True)
 
     if st.button("Done", type="primary"):
-        st.session_state["datagrid"]["table_id"] += 1
+        st.session_state["table_id"] += 1
         st.rerun()
 
 
@@ -501,7 +501,7 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
         st.markdown(format_text(value, "100px"), unsafe_allow_html=True)
 
     if st.button("Done", type="primary"):
-        st.session_state["datagrid"]["table_id"] += 1
+        st.session_state["table_id"] += 1
         st.rerun()
 
 
@@ -577,7 +577,7 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback
         st.write(value)
 
     if st.button("Done", type="primary"):
-        st.session_state["datagrid"]["table_id"] += 1
+        st.session_state["table_id"] += 1
         st.rerun()
 
 
@@ -650,7 +650,7 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback):
         st.write(value)
 
     if st.button("Done", type="primary"):
-        st.session_state["datagrid"]["table_id"] += 1
+        st.session_state["table_id"] += 1
         st.rerun()
 
 
@@ -672,7 +672,7 @@ def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
         st.write(value)
 
     if st.button("Done", type="primary"):
-        st.session_state["datagrid"]["table_id"] += 1
+        st.session_state["table_id"] += 1
         st.rerun()
 
 
@@ -694,5 +694,5 @@ def render_json_dialog(BASEURL, group_by, value, schema, experiment):
         st.json(value)
 
     if st.button("Done", type="primary"):
-        st.session_state["datagrid"]["table_id"] += 1
+        st.session_state["table_id"] += 1
         st.rerun()
