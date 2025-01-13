@@ -264,7 +264,7 @@ def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, c
 
 
 @st.dialog("Download DataGrid")
-def render_download_dialog(BASEURL, dg, schema, where, experiment):
+def render_download_dialog(BASEURL, dg, schema, where, experiment, config):
     use_urls = st.checkbox("Use Comet IDs for assets", value=True)
     include_metadata = st.checkbox(
         "Include asset metadata", value=True, disabled=use_urls
@@ -320,11 +320,13 @@ def render_download_dialog(BASEURL, dg, schema, where, experiment):
         if st.download_button(
             "Download", formatted_data, file_name=filename, type="primary"
         ):
+            st.session_state["table_id"] += 1
+            config.save()
             st.rerun()
 
 
 @st.dialog(" ", width="large")
-def render_image_dialog(BASEURL, group_by, value, schema, experiment):
+def render_image_dialog(BASEURL, group_by, value, schema, experiment, config):
     if group_by:
         where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
         st.title(
@@ -427,11 +429,12 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment):
 
     if st.button("Done", type="primary"):
         st.session_state["table_id"] += 1
+        config.save()
         st.rerun()
 
 
 @st.dialog(" ", width="large")
-def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
+def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback, config):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -502,11 +505,14 @@ def render_text_dialog(BASEURL, group_by, value, schema, experiment, callback):
 
     if st.button("Done", type="primary"):
         st.session_state["table_id"] += 1
+        config.save()
         st.rerun()
 
 
 @st.dialog(" ", width="large")
-def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback):
+def render_integer_dialog(
+    BASEURL, group_by, value, schema, experiment, callback, config
+):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -578,11 +584,12 @@ def render_integer_dialog(BASEURL, group_by, value, schema, experiment, callback
 
     if st.button("Done", type="primary"):
         st.session_state["table_id"] += 1
+        config.save()
         st.rerun()
 
 
 @st.dialog(" ", width="large")
-def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback):
+def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback, config):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -651,11 +658,12 @@ def render_float_dialog(BASEURL, group_by, value, schema, experiment, callback):
 
     if st.button("Done", type="primary"):
         st.session_state["table_id"] += 1
+        config.save()
         st.rerun()
 
 
 @st.dialog(" ", width="large")
-def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
+def render_boolean_dialog(BASEURL, group_by, value, schema, experiment, config):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -673,11 +681,12 @@ def render_boolean_dialog(BASEURL, group_by, value, schema, experiment):
 
     if st.button("Done", type="primary"):
         st.session_state["table_id"] += 1
+        config.save()
         st.rerun()
 
 
 @st.dialog(" ", width="large")
-def render_json_dialog(BASEURL, group_by, value, schema, experiment):
+def render_json_dialog(BASEURL, group_by, value, schema, experiment, config):
     if group_by:
         if isinstance(value, dict):
             where_str = (" and %s" % value["whereExpr"]) if value["whereExpr"] else ""
@@ -695,4 +704,5 @@ def render_json_dialog(BASEURL, group_by, value, schema, experiment):
 
     if st.button("Done", type="primary"):
         st.session_state["table_id"] += 1
+        config.save()
         st.rerun()
