@@ -56,7 +56,7 @@ def format_text(value, width="80%"):
     if len(value) < 25:  ## and count_unique < 2000
         background = get_color(value)
         color = get_contrasting_color(background)
-        value = f"""<div style="background: {background}; color: {color}; width: {width}; text-align: center; border-radius: 50px; margin-left: 10%;">{value}</div>"""
+        value = f"""<div style="background: {background}; color: {color}; width: {width}; text-align: center; border-radius: 50px; margin-left: 10%; font-size: 13px;">{value}</div>"""
     return value
 
 
@@ -64,7 +64,12 @@ def build_header_row(column_names, width):
     retval = "<tr>"
     for name in column_names:
         retval += (
-            """<th style="width: %spx; border: 1px solid; border-collapse: collapse; background-color: lightgray; padding-left: 10px;">%s</th>"""
+            """<th style="width: %spx;
+            border-bottom-color: gray; border-bottom-style: solid; border-bottom-width: thin;
+            border-right-color: lightgray; border-right-style: dashed; border-right-width: thin;
+            border-top-color: gray; border-top-style: solid; border-top-width: thin;
+            height: 35px;
+            background-color: #f8f8ff; padding-left: 20px; font-weight: inherit; font-size: 13px;">%s</th>"""
             % (width, name)
         )
     retval += "</tr>"
@@ -242,7 +247,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
         if schema[column_name]["type"] not in ["ROW_ID"] and linkable:
             value = build_link(c, r, value)
         retval += (
-            """<td style="border: 1px solid; border-collapse: collapse; text-align: center; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: %spx;">%s</td>"""
+            """<td style="border-bottom: 1px solid; border-color: lightgray; border-collapse: collapse; text-align: left; padding-left: 20px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: %spx;">%s</td>"""
             % (max_height, value)
         )
 
@@ -253,7 +258,7 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
 # -webkit-fill-available
 def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, config):
     width = 300 if group_by else 150
-    retval = f"""<div style="display: block; width: -webkit-fill-available; overflow: auto;"><table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border: 1px solid; border-collapse: collapse; table-layout: fixed;">"""
+    retval = f"""<div style="display: block; width: -webkit-fill-available; overflow: auto;"><table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys(), width)
     for r, row in enumerate(data):
         retval += build_row(
