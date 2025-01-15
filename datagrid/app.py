@@ -62,15 +62,23 @@ def format_text(value, width="80%"):
 
 def build_header_row(column_names, width):
     retval = "<tr>"
-    for name in column_names:
-        retval += (
-            """<th style="width: %spx;
-            border-bottom-color: gray; border-bottom-style: solid; border-bottom-width: thin;
-            border-right-color: lightgray; border-right-style: dashed; border-right-width: thin;
-            border-top-color: gray; border-top-style: solid; border-top-width: thin;
+    for i, name in enumerate(column_names):
+        heading = (
+            name.title()
+            if i == 0
+            else (
+                '<span style="color: lightgray;">|</span>&nbsp;&nbsp;&nbsp;&nbsp;%s'
+                % name.title()
+            )
+        )
+        retval += """<th style="width: %spx;
+            border-bottom-color: #babfc7; border-bottom-style: solid; border-bottom-width: thin;
+            border-right-color: #babfc7; border-right-style: none; border-right-width: thin;
+            border-top-color: #babfc7; border-top-style: solid; border-top-width: thin;
             height: 35px;
-            background-color: #f8f8ff; padding-left: 20px; font-weight: inherit; font-size: 13px;">%s</th>"""
-            % (width, name)
+            background-color: #f8f8ff; padding-left: 20px; font-weight: inherit; font-size: 13px;">%s</th>""" % (
+            width,
+            heading,
         )
     retval += "</tr>"
     return retval
@@ -246,19 +254,23 @@ def build_row(DATAGRID, group_by, where, r, row, schema, experiment, config):
 
         if schema[column_name]["type"] not in ["ROW_ID"] and linkable:
             value = build_link(c, r, value)
+
+        padding_left = "20px" if c == 0 else "35px"
+
         retval += (
-            """<td style="border-bottom: 1px solid; border-color: lightgray; border-collapse: collapse; text-align: left; padding-left: 20px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: %spx;">%s</td>"""
-            % (max_height, value)
+            """<td style="border-bottom: 1px solid; border-color: lightgray; border-collapse: collapse; text-align: left; padding-left: %s; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; height: %spx; font-size: 13px;">%s</td>"""
+            % (padding_left, max_height, value)
         )
 
     retval += "</tr>"
     return retval
 
 
-# -webkit-fill-available
 def build_table(DATAGRID, group_by, where, data, schema, experiment, table_id, config):
     width = 300 if group_by else 150
-    retval = f"""<div style="display: block; width: -webkit-fill-available; overflow: auto;"><table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border-collapse: collapse; table-layout: fixed;">"""
+    retval = f"""
+    <div style="display: block; width: -webkit-fill-available; overflow: auto;">
+        <table id="{table_id}" style="width: {len(data[0].keys()) * width}px; border-collapse: collapse; table-layout: fixed;">"""
     retval += build_header_row(data[0].keys(), width)
     for r, row in enumerate(data):
         retval += build_row(
@@ -277,7 +289,7 @@ def render_download_dialog(BASEURL, dg, schema, where, experiment, config):
     include_annotations = st.checkbox(
         "Include image annotations", value=True, disabled=use_urls
     )
-    download_type = st.selectbox("Download format:", ["CSV", "JSON"])
+    download_type = st.selectbox("Download format", ["CSV", "JSON"])
     prepare = st.button("Prepare download")
     if prepare:
         data = dg.select(
@@ -396,14 +408,14 @@ def render_image_dialog(BASEURL, group_by, value, schema, experiment, config):
         labels_list = sorted(value["assetData"].get("labels", []))
         if labels_list:
             labels = columns[0].pills(
-                "**Labels**:",
+                "**Labels**",
                 labels_list,
                 selection_mode="multi",
                 default=labels_list,
             )
 
         if "metadata" in value["assetData"] and value["assetData"]["metadata"]:
-            columns[0].markdown("**Image metadata**:")
+            columns[0].markdown("**Image metadata**")
             columns[0].json(value["assetData"]["metadata"])
 
         asset_data = experiment_get_asset(
