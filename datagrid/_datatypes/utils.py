@@ -24,12 +24,16 @@ import shutil
 import urllib.parse
 import urllib.request
 import uuid
-import streamlit as st
 
 import numpy as np
 import six
 
 from .._typing import IO, Any
+
+try:
+    import streamlit as st
+except ImportError:
+    st = None
 
 THUMBNAIL_SIZE = (150, 55)  # width, height
 RESERVED_NAMES = ["row-id"]
@@ -37,10 +41,17 @@ LOGGER = logging.getLogger(__name__)
 INFINITY = float("inf")
 CONVERSION_METHODS = ["as_py", "to_pydatetime"]
 
+if st is not None and st.runtime.exists():
 
-@st.cache_data(persist="disk")
-def experiment_get_asset(_experiment, experiment_id, asset_id, return_type):
-    return _experiment.get_asset(asset_id, return_type=return_type)
+    @st.cache_data(persist="disk")
+    def experiment_get_asset(_experiment, experiment_id, asset_id, return_type):
+        return _experiment.get_asset(asset_id, return_type=return_type)
+
+else:
+
+    def experiment_get_asset(_experiment, experiment_id, asset_id, return_type):
+        return _experiment.get_asset(asset_id, return_type=return_type)
+
 
 def get_contrasting_color(color):
     # color in hex
