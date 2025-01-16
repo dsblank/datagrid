@@ -20,6 +20,7 @@ import os
 import re
 import sqlite3
 import statistics
+import inspect
 import string
 import time
 import urllib
@@ -28,7 +29,11 @@ from collections import Counter, defaultdict
 import numpy as np
 import PIL.Image
 import PIL.ImageDraw
-import streamlit as st
+
+try:
+    import streamlit as st
+except ImportError:
+    st = None
 
 from .._datatypes.utils import (
     generate_thumbnail,
@@ -59,6 +64,34 @@ import math
 VALID_CHARS = string.ascii_letters + string.digits + "_"
 
 PROJECTION_TRACE_CACHE = Cache(100)
+
+if st is not None:
+    if not st.runtime.exists():
+        logging.basicConfig(level=logging.INFO)
+else:
+
+    class st:
+        CACHE = {}
+
+        @classmethod
+        def cache_data(cls, persist=None):
+            def decorator(f):
+                def wrapper(*args, **kwargs):
+                    # if you want arguments names as a list:
+                    signature = inspect.signature(f)
+                    bindings = signature.bind(*args, **kwargs)
+                    arguments = bindings.arguments
+                    key = tuple(
+                        [f.__name__]
+                        + [v for k, v in arguments.items() if not k.startswith("_")]
+                    )
+                    if key not in st.CACHE:
+                        st.CACHE[key] = f(*args, **kwargs)
+                    return st.CACHE[key]
+
+                return wrapper
+
+            return decorator
 
 
 def sqlite_query_explain(
@@ -738,6 +771,7 @@ def plural(count, noun):
 
     return "%s %s" % (count, nouns)
 
+
 def category(cur, metadata, counts, column):
     """
     Given counts = {"Animal": 37, "Plant": 12}
@@ -805,7 +839,9 @@ def histogram(cur, metadata, values, column):
     LOGGER.debug("Computing histogram...")
     # If show counts, do this:
     if True:
-        counts, labels = np.histogram(np_values, bins=HISTOGRAM_BINS, range=(minimum, maximum))
+        counts, labels = np.histogram(
+            np_values, bins=HISTOGRAM_BINS, range=(minimum, maximum)
+        )
     else:
         # if show means do this:
         # First, compute each bar set:
@@ -813,7 +849,9 @@ def histogram(cur, metadata, values, column):
         for value in np_values:
             position = math.floor(((value - minimum) / maximum) * HISTOGRAM_BINS)
             positions[position].append(value)
-        counts = np.array([sum(position)/len(position) if position else 0 for position in positions])
+        counts = np.array(
+            [sum(position) / len(position) if position else 0 for position in positions]
+        )
         labels = np.arange(minimum, maximum, (maximum - minimum) / HISTOGRAM_BINS)
 
     # Compute stats for this set:
