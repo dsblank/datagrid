@@ -209,22 +209,6 @@ def process_about(url, dgid, text):
         return ""
 
 
-def get_node_version():
-    try:
-        import nodejs
-    except Exception:
-        nodejs = None
-
-    if nodejs is not None:
-        return nodejs.__version__
-
-    output = subprocess.check_output(["node", "--version"])
-    if output:
-        return output.decode("utf-8").strip()
-
-    return "unknown"
-
-
 class RestrictedUnpickler(pickle.Unpickler):
     def __init__(self, safe, *args, **kwargs):
         self.safe = safe

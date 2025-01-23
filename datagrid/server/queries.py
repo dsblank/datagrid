@@ -65,11 +65,7 @@ VALID_CHARS = string.ascii_letters + string.digits + "_"
 
 PROJECTION_TRACE_CACHE = Cache(100)
 
-if st is not None:
-    if not st.runtime.exists():
-        logging.basicConfig(level=logging.INFO)
-else:
-
+if st is None or not st.runtime.exists():
     class st:
         CACHE = {}
 
